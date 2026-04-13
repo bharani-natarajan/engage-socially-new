@@ -1,12 +1,19 @@
 import { NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { randomUUID } from 'crypto';
 
 export const dynamic = 'force-dynamic';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_BYTES = 8 * 1024 * 1024; // 8 MB
+
+const s3 = new S3Client({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
+});
 
 export async function POST(request) {
   try {
@@ -29,14 +36,16 @@ export async function POST(request) {
     }
 
     const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
-    const filename = `${randomUUID()}.${ext}`;
-    const uploadsDir = join(process.cwd(), 'public', 'uploads');
+    const key = `uploads/${randomUUID()}.${ext}`;
 
-    // Ensure uploads directory exists
-    await mkdir(uploadsDir, { recursive: true });
-    await writeFile(join(uploadsDir, filename), Buffer.from(bytes));
+    await s3.send(new PutObjectCommand({
+      Bucket: process.env.AWS_S3_BUCKET,
+      Key: key,
+      Body: Buffer.from(bytes),
+      ContentType: file.type,
+    }));
 
-    const url = `${process.env.NEXT_PUBLIC_APP_URL}/uploads/${filename}`;
+    const url = `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
     return NextResponse.json({ url });
   } catch (err) {
     console.error('[Upload error]', err.message);
