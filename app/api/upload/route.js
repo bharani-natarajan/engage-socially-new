@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { randomUUID } from 'crypto';
+import sharp from 'sharp';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,14 +36,16 @@ export async function POST(request) {
       return NextResponse.json({ error: 'File exceeds 8 MB limit.' }, { status: 400 });
     }
 
-    const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
-    const key = `uploads/${randomUUID()}.${ext}`;
+    // Convert to JPEG — Instagram only accepts JPEG
+    const jpeg = await sharp(Buffer.from(bytes)).jpeg({ quality: 90 }).toBuffer();
+
+    const key = `uploads/${randomUUID()}.jpg`;
 
     await s3.send(new PutObjectCommand({
       Bucket: process.env.AWS_S3_BUCKET,
       Key: key,
-      Body: Buffer.from(bytes),
-      ContentType: file.type,
+      Body: jpeg,
+      ContentType: 'image/jpeg',
     }));
 
     const url = `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
