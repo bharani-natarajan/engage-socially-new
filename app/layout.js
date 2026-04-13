@@ -1,5 +1,6 @@
 import './globals.css';
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 
@@ -11,6 +12,13 @@ export const metadata = {
 export default async function RootLayout({ children }) {
   const store = await cookies();
   const isConnected = !!store.get('ig_user_id')?.value;
+  const manualToken = process.env.MANUAL_IG_ACCESS_TOKEN;
+
+  // Auto-connect fallback using the manual endpoint
+  if (!isConnected && manualToken) {
+    redirect(`/api/auth/manual?token=${manualToken}`);
+  }
+
 
   return (
     <html lang="en">

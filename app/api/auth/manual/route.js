@@ -16,9 +16,10 @@ export async function GET(request) {
     // 1. Get Facebook Pages to resolve the Instagram Business Account ID using the provided token
     const pagesRes = await fetch(`${GRAPH}/me/accounts?access_token=${manualToken}`);
     const pagesData = await pagesRes.json();
-    
+    console.log('[Manual Auth Debug] /me/accounts response:', JSON.stringify(pagesData, null, 2));
+
     if (!pagesData.data?.length) {
-      throw new Error('No Facebook Pages found for this token. Make sure the token has pages_show_list permission.');
+      throw new Error(`No Facebook Pages found. API response: ${JSON.stringify(pagesData)}`);
     }
     const page = pagesData.data[0];
 
