@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const SEEDS = [42, 1337, 9999, 5678];
+const SEEDS = [42];
 
 async function submitFlux(imageBase64, prompt, seed) {
   const res = await fetch('https://api.cometapi.com/flux/v1/flux-2-max', {
