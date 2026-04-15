@@ -8,7 +8,9 @@ export async function POST(request) {
   const { tokens, error } = await requireAuth();
   if (error) return error;
 
-  const { imageUrl, caption } = await request.json();
+  let { imageUrl, caption } = await request.json();
+  // TEST: override with a known public image to isolate S3 regional access issues
+  imageUrl = 'https://upload.wikimedia.org/wikipedia/commons/3/3f/Bikesgray.jpg';
   if (!imageUrl) {
     return NextResponse.json({ error: 'imageUrl is required' }, { status: 400 });
   }
