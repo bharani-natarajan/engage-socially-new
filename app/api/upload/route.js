@@ -70,7 +70,7 @@ export async function POST(request) {
       ContentType: 'image/jpeg',
     }));
 
-    const url = `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+    const url = `https://${process.env.AWS_CLOUDFRONT_DOMAIN}/${key}`;
     return NextResponse.json({ url });
   } catch (err) {
     console.error('[Upload error]', err.message);
