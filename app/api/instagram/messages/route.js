@@ -25,6 +25,7 @@ export async function POST(request) {
     );
     return NextResponse.json(data);
   } catch (err) {
+    console.error('[DM error]', err.message);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
