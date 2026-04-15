@@ -28,8 +28,7 @@ export async function GET(request) {
     console.log('[FLUX status]', data?.status, JSON.stringify(data).slice(0, 200));
 
     if (data?.status === 'Ready') {
-      console.log('[FLUX ready] full response:', JSON.stringify(data).slice(0, 800));
-      console.log('[FLUX ready] result keys:', Object.keys(data.result ?? {}));
+      console.log('[FLUX ready] sample URL:', data.result?.sample);
       const bflUrl = data.result?.sample ?? data.sample ?? data.result ?? data.output ?? data.image_url;
       if (!bflUrl) {
         return NextResponse.json({ error: 'Ready but no image URL: ' + JSON.stringify(data) }, { status: 500 });
