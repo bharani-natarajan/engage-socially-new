@@ -34,10 +34,8 @@ export async function GET(request) {
         return NextResponse.json({ error: 'Ready but no image URL: ' + JSON.stringify(data) }, { status: 500 });
       }
 
-      // Fetch the image from BFL (requires auth) and upload to Cloudinary for public access
-      const imgRes = await fetch(bflUrl, {
-        headers: { 'Authorization': `Bearer ${process.env.COMET_API_KEY}` },
-      });
+      // Fetch the image from BFL (URL is pre-signed, no auth header needed)
+      const imgRes = await fetch(bflUrl);
       if (!imgRes.ok) {
         return NextResponse.json({ error: `Failed to fetch generated image: ${imgRes.status}` }, { status: 502 });
       }
