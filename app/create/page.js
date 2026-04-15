@@ -135,7 +135,7 @@ export default function CreatePostPage() {
               ref={fileInput}
               id="file-upload"
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/jpeg"
               disabled={isBusy}
               className="hidden"
             />
@@ -187,7 +187,7 @@ export default function CreatePostPage() {
                   <p className="text-sm font-semibold text-gray-700">Drop image here</p>
                   <p className="text-xs text-gray-400 mt-0.5">or click to browse</p>
                 </div>
-                <p className="text-xs text-gray-400">JPEG · PNG · WebP · max 8 MB</p>
+                <p className="text-xs text-gray-400">JPEG · max 8 MB</p>
               </label>
             )}
           </div>

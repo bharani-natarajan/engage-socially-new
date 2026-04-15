@@ -14,6 +14,10 @@ export async function POST(request) {
   }
 
   try {
+    // Warm up the CloudFront cache so Instagram's US/EU edge nodes don't get a
+    // cold-cache miss (high latency back to ap-south-1) and time out.
+    await fetch(imageUrl, { method: 'GET', cache: 'no-store' }).catch(() => {});
+
     // Step 1: Create media container
     const container = await createMediaContainer(
       tokens.userId,
