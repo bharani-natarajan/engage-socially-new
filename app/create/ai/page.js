@@ -100,7 +100,7 @@ export default function AIGeneratePage() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">AI Post Generator</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Drop a product image, describe the scene, get 4 AI-generated creatives</p>
+        <p className="text-sm text-gray-500 mt-0.5">Drop a product image, describe the scene, get an AI-generated creative</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -209,7 +209,7 @@ export default function AIGeneratePage() {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
                 </svg>
-                Generate 4 Creatives
+                Generate Creative
               </>
             )}
           </button>
