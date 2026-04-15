@@ -8,6 +8,7 @@ export function GET() {
       'instagram_basic',
       'instagram_content_publish',
       'instagram_manage_comments',
+      'instagram_manage_messages',
       'pages_show_list',
     ].join(','),
     response_type: 'code',

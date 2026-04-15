@@ -36,10 +36,17 @@ function ReplyItem({ reply }) {
 
 function CommentItem({ comment, mediaId }) {
   const [showReply, setShowReply] = useState(false);
+  const [showDm, setShowDm] = useState(false);
   const [replyText, setReplyText] = useState('');
+  const [dmText, setDmText] = useState('');
   const [sending, setSending] = useState(false);
+  const [sendingDm, setSendingDm] = useState(false);
   const [replies, setReplies] = useState(comment.replies?.data ?? []);
   const [replyError, setReplyError] = useState('');
+  const [dmError, setDmError] = useState('');
+  const [dmSent, setDmSent] = useState(false);
+
+  const recipientId = comment.from?.id;
 
   async function submitReply(e) {
     e.preventDefault();
@@ -72,6 +79,29 @@ function CommentItem({ comment, mediaId }) {
     }
   }
 
+  async function submitDm(e) {
+    e.preventDefault();
+    if (!dmText.trim() || !recipientId) return;
+    setSendingDm(true);
+    setDmError('');
+    try {
+      const res = await fetch('/api/instagram/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recipientId, message: dmText.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send DM');
+      setDmText('');
+      setDmSent(true);
+      setTimeout(() => { setDmSent(false); setShowDm(false); }, 2000);
+    } catch (err) {
+      setDmError(err.message);
+    } finally {
+      setSendingDm(false);
+    }
+  }
+
   return (
     <div className="py-4 border-b border-gray-100 last:border-0">
       <div className="flex gap-3">
@@ -82,12 +112,26 @@ function CommentItem({ comment, mediaId }) {
             <span className="text-xs text-gray-400">{timeAgo(comment.timestamp)}</span>
           </div>
           <p className="text-sm text-gray-600 mt-0.5 leading-relaxed">{comment.text}</p>
-          <button
-            onClick={() => setShowReply((v) => !v)}
-            className="mt-2 text-xs text-gray-400 hover:text-violet-600 transition-colors"
-          >
-            {showReply ? 'Cancel' : 'Reply'}
-          </button>
+          <div className="flex items-center gap-3 mt-2">
+            <button
+              onClick={() => { setShowReply((v) => !v); setShowDm(false); }}
+              className="text-xs text-gray-400 hover:text-violet-600 transition-colors"
+            >
+              {showReply ? 'Cancel' : 'Reply'}
+            </button>
+            {recipientId && (
+              <button
+                onClick={() => { setShowDm((v) => !v); setShowReply(false); }}
+                className="text-xs text-gray-400 hover:text-blue-600 transition-colors flex items-center gap-1"
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13" />
+                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                </svg>
+                {showDm ? 'Cancel' : 'DM'}
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -116,8 +160,33 @@ function CommentItem({ comment, mediaId }) {
           </button>
         </form>
       )}
-      {replyError && (
-        <p className="ml-11 mt-1.5 text-xs text-red-500">{replyError}</p>
+      {replyError && <p className="ml-11 mt-1.5 text-xs text-red-500">{replyError}</p>}
+
+      {/* DM form */}
+      {showDm && (
+        <form onSubmit={submitDm} className="mt-3 ml-11 space-y-2">
+          <p className="text-xs text-gray-400">
+            Send a private DM to <span className="font-medium text-gray-600">@{comment.username}</span>
+          </p>
+          <div className="flex gap-2">
+            <input
+              value={dmText}
+              onChange={(e) => setDmText(e.target.value)}
+              placeholder="Write a message..."
+              className="flex-1 bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 transition-colors"
+              disabled={sendingDm || dmSent}
+              autoFocus
+            />
+            <button
+              type="submit"
+              disabled={sendingDm || !dmText.trim() || dmSent}
+              className="px-3 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm rounded-lg transition-colors"
+            >
+              {dmSent ? '✓ Sent' : sendingDm ? '...' : 'Send'}
+            </button>
+          </div>
+          {dmError && <p className="text-xs text-red-500">{dmError}</p>}
+        </form>
       )}
     </div>
   );
