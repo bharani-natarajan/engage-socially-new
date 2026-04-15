@@ -8,18 +8,12 @@ export async function POST(request) {
   const { tokens, error } = await requireAuth();
   if (error) return error;
 
-  let { imageUrl, caption } = await request.json();
-  // TEST: hardcode cached CloudFront URL to check if Instagram can reach CloudFront at all
-  imageUrl = 'https://d2nyqq2zjfzmla.cloudfront.net/uploads/938b80c4-14b9-44e2-84ac-1e0db7f61906.jpg';
+  const { imageUrl, caption } = await request.json();
   if (!imageUrl) {
     return NextResponse.json({ error: 'imageUrl is required' }, { status: 400 });
   }
 
   try {
-    // Warm up the CloudFront cache so Instagram's US/EU edge nodes don't get a
-    // cold-cache miss (high latency back to ap-south-1) and time out.
-    await fetch(imageUrl, { method: 'GET', cache: 'no-store' }).catch(() => {});
-
     // Step 1: Create media container
     const container = await createMediaContainer(
       tokens.userId,
