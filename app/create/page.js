@@ -46,13 +46,13 @@ export default function CreatePostPage() {
   // Derive preview URL after `file` state is committed to React.
   useEffect(() => {
     if (!file) {
-      setPreview(null);
+      if (!aiImageUrl) setPreview(null);
       return;
     }
     const url = URL.createObjectURL(file);
     setPreview(url);
     return () => URL.revokeObjectURL(url);
-  }, [file]);
+  }, [file, aiImageUrl]);
 
   function pickFile(f) {
     if (!f) return;
