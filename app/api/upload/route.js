@@ -56,10 +56,28 @@ export async function POST(request) {
     const targetW = resizeOpts.width ?? w;
     const targetH = Math.round(targetW / clampedRatio);
 
-    const jpeg = await image
+    const raw = await image
       .resize(targetW, targetH, { fit: 'cover', position: 'centre' })
       .jpeg({ quality: 90 })
       .toBuffer();
+
+    // Instagram requires JFIF-compliant JPEG (starts with ffd8 ffe0 JFIF).
+    // sharp strips metadata and produces raw JPEG (ffd8 ffdb) which Instagram rejects.
+    // Inject a minimal JFIF APP0 marker after the SOI marker if not already present.
+    let jpeg;
+    if (raw[2] === 0xFF && raw[3] === 0xE0) {
+      jpeg = raw; // already JFIF
+    } else {
+      const jfif = Buffer.from([
+        0xFF, 0xE0, 0x00, 0x10,             // APP0 marker + length
+        0x4A, 0x46, 0x49, 0x46, 0x00,       // "JFIF\0"
+        0x01, 0x01,                          // version 1.1
+        0x00,                                // pixel aspect ratio (no units)
+        0x00, 0x01, 0x00, 0x01,             // density 1x1
+        0x00, 0x00,                          // no thumbnail
+      ]);
+      jpeg = Buffer.concat([raw.subarray(0, 2), jfif, raw.subarray(2)]);
+    }
 
     const key = `uploads/${randomUUID()}.jpg`;
 
