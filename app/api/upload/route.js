@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
+import sharp from 'sharp';
 
 export const dynamic = 'force-dynamic';
 
-const ALLOWED_TYPES = ['image/jpeg'];
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_BYTES = 8 * 1024 * 1024; // 8 MB
 
 cloudinary.config({
@@ -29,7 +30,22 @@ export async function POST(request) {
       return NextResponse.json({ error: 'File exceeds 8 MB limit.' }, { status: 400 });
     }
 
-    const dataUri = `data:image/jpeg;base64,${Buffer.from(bytes).toString('base64')}`;
+    // Convert to JPEG and normalize dimensions for Instagram:
+    // width 320–1440px, aspect ratio between 4:5 (0.8) and 1.91:1
+    const image = sharp(Buffer.from(bytes));
+    const meta = await image.metadata();
+    const w = meta.width ?? 1080;
+    const h = meta.height ?? 1080;
+    const ratio = w / h;
+    const targetW = Math.min(1440, Math.max(320, w));
+    const clampedRatio = Math.min(1.91, Math.max(0.8, ratio));
+    const targetH = Math.round(targetW / clampedRatio);
+    const jpeg = await image
+      .resize(targetW, targetH, { fit: 'cover', position: 'centre' })
+      .jpeg({ quality: 90 })
+      .toBuffer();
+
+    const dataUri = `data:image/jpeg;base64,${jpeg.toString('base64')}`;
     const result = await cloudinary.uploader.upload(dataUri, {
       folder: 'engage-socially',
       resource_type: 'image',
