@@ -11,7 +11,7 @@ async function submitFlux(imageBase64, prompt, seed) {
   const res = await fetch('https://api.cometapi.com/flux/v1/flux-2-max', {
     method: 'POST',
     headers: {
-      'x-key': process.env.COMET_API_KEY,
+      'Authorization': `Bearer ${process.env.COMET_API_KEY}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -38,7 +38,7 @@ async function pollFlux(taskId) {
     await sleep(2000);
     const res = await fetch(
       `https://api.cometapi.com/flux/v1/get_result?task_id=${taskId}`,
-      { headers: { 'x-key': process.env.COMET_API_KEY } }
+      { headers: { 'Authorization': `Bearer ${process.env.COMET_API_KEY}` } }
     );
     const data = await res.json();
     console.log('[FLUX poll]', taskId, data?.status);
