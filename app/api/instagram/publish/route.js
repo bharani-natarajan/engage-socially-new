@@ -8,7 +8,9 @@ export async function POST(request) {
   const { tokens, error } = await requireAuth();
   if (error) return error;
 
-  const { imageUrl, caption } = await request.json();
+  let { imageUrl, caption } = await request.json();
+  // TEST: hardcode cached CloudFront URL to check if Instagram can reach CloudFront at all
+  imageUrl = 'https://d2nyqq2zjfzmla.cloudfront.net/uploads/938b80c4-14b9-44e2-84ac-1e0db7f61906.jpg';
   if (!imageUrl) {
     return NextResponse.json({ error: 'imageUrl is required' }, { status: 400 });
   }
