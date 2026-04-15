@@ -37,7 +37,7 @@ async function submitGeneration(imageBase64, prompt, seed) {
 }
 
 async function pollResult(requestId) {
-  const statusUrl = `https://api.cometapi.com/bria/status/${requestId}`;
+  const statusUrl = `https://api.cometapi.com/bria/image/edit/status/${requestId}`;
   for (let i = 0; i < 30; i++) {
     await sleep(2000);
     const res = await fetch(statusUrl, {
