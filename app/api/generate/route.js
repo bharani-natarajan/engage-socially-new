@@ -10,7 +10,7 @@ async function generateVariation(imageBase64, prompt, seed) {
   const res = await fetch('https://api.cometapi.com/bria/image/edit/replace_background', {
     method: 'POST',
     headers: {
-      'x-key': process.env.COMET_API_KEY,
+      'Authorization': `Bearer ${process.env.COMET_API_KEY}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -25,6 +25,7 @@ async function generateVariation(imageBase64, prompt, seed) {
   });
 
   const data = await res.json();
+  console.log('[Bria response]', res.status, JSON.stringify(data).slice(0, 300));
   if (!res.ok || data.error) {
     throw new Error(data?.error?.message ?? data?.detail ?? JSON.stringify(data));
   }
