@@ -55,14 +55,35 @@ export default function AIGeneratePage() {
     setImages([]);
 
     try {
+      // Step 1: Submit job
       const formData = new FormData();
       formData.append('image', file);
       formData.append('prompt', prompt.trim());
 
-      const res = await fetch('/api/generate', { method: 'POST', body: formData });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Generation failed');
-      setImages(data.images);
+      const submitRes = await fetch('/api/generate', { method: 'POST', body: formData });
+      const submitData = await submitRes.json();
+      if (!submitRes.ok) throw new Error(submitData.error || 'Submission failed');
+
+      const { pollingUrl } = submitData;
+
+      // Step 2: Poll until ready (max ~105 seconds, 7s intervals)
+      for (let i = 0; i < 15; i++) {
+        await new Promise((r) => setTimeout(r, 7000));
+        const statusRes = await fetch(`/api/generate/status?url=${encodeURIComponent(pollingUrl)}`);
+        const statusData = await statusRes.json();
+
+        if (!statusRes.ok) throw new Error(statusData.error || 'Status check failed');
+
+        if (statusData.status === 'ready') {
+          setImages([statusData.imageUrl]);
+          return;
+        }
+        if (statusData.status === 'failed') {
+          throw new Error(statusData.error || 'Generation failed');
+        }
+        // 'pending' — keep polling
+      }
+      throw new Error('Generation timed out after 90 seconds');
     } catch (err) {
       setError(err.message);
     } finally {
