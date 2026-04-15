@@ -13,8 +13,15 @@ export async function GET(request) {
   }
 
   try {
+    // 0. Exchange short-lived token for a long-lived token (60 days)
+    const exchangeRes = await fetch(
+      `${GRAPH}/oauth/access_token?grant_type=fb_exchange_token&client_id=${process.env.INSTAGRAM_CLIENT_ID}&client_secret=${process.env.INSTAGRAM_CLIENT_SECRET}&fb_exchange_token=${manualToken}`
+    );
+    const exchangeData = await exchangeRes.json();
+    const longLivedToken = exchangeData.access_token ?? manualToken;
+
     // 1. Get Facebook Pages to resolve the Instagram Business Account ID using the provided token
-    const pagesRes = await fetch(`${GRAPH}/me/accounts?access_token=${manualToken}`);
+    const pagesRes = await fetch(`${GRAPH}/me/accounts?access_token=${longLivedToken}`);
     const pagesData = await pagesRes.json();
     console.log('[Manual Auth Debug] /me/accounts response:', JSON.stringify(pagesData, null, 2));
 
@@ -35,7 +42,7 @@ export async function GET(request) {
 
     // 3. Fetch Instagram username for display
     const profileRes = await fetch(
-      `${GRAPH}/${igUserId}?fields=username&access_token=${manualToken}`
+      `${GRAPH}/${igUserId}?fields=username&access_token=${longLivedToken}`
     );
     const profileData = await profileRes.json();
 
@@ -49,9 +56,9 @@ export async function GET(request) {
       path: '/',
       maxAge: 60 * 24 * 60 * 60, // 60 days
     };
-    
-    // Inject the manual token into the cookie jar
-    store.set('ig_access_token', manualToken, base);
+
+    // Inject the long-lived token into the cookie jar
+    store.set('ig_access_token', longLivedToken, base);
     store.set('ig_user_id', igUserId, base);
     store.set('ig_username', profileData.username ?? 'ManualAuth', {
       ...base,
