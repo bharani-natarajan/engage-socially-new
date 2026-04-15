@@ -36,8 +36,30 @@ export async function POST(request) {
       return NextResponse.json({ error: 'File exceeds 8 MB limit.' }, { status: 400 });
     }
 
-    // Convert to JPEG — Instagram only accepts JPEG
-    const jpeg = await sharp(Buffer.from(bytes)).jpeg({ quality: 90 }).toBuffer();
+    // Convert to JPEG and normalize dimensions for Instagram:
+    // width 320–1440px, aspect ratio between 4:5 (0.8) and 1.91:1
+    const image = sharp(Buffer.from(bytes));
+    const meta = await image.metadata();
+    const w = meta.width ?? 1080;
+    const h = meta.height ?? 1080;
+    const ratio = w / h;
+
+    let resizeOpts = {};
+    if (w > 1440) {
+      resizeOpts = { width: 1440 };
+    } else if (w < 320) {
+      resizeOpts = { width: 320 };
+    }
+
+    // Clamp aspect ratio by cropping
+    const clampedRatio = Math.min(1.91, Math.max(0.8, ratio));
+    const targetW = resizeOpts.width ?? w;
+    const targetH = Math.round(targetW / clampedRatio);
+
+    const jpeg = await image
+      .resize(targetW, targetH, { fit: 'cover', position: 'centre' })
+      .jpeg({ quality: 90 })
+      .toBuffer();
 
     const key = `uploads/${randomUUID()}.jpg`;
 

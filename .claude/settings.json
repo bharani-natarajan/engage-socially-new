@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm audit:*)"
+      "Bash(npm audit:*)",
+      "Bash(curl -sI \"https://engage-socially.s3.ap-south-1.amazonaws.com/uploads/f038fea9-3c07-40e9-aee7-488883f72d66.jpg\")"
     ]
   }
 }
