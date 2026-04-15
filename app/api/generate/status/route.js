@@ -1,7 +1,14 @@
 import { NextResponse } from 'next/server';
+import { v2 as cloudinary } from 'cloudinary';
 import { requireAuth } from '@/lib/tokens';
 
 export const dynamic = 'force-dynamic';
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 export async function GET(request) {
   const { error } = await requireAuth();
@@ -21,18 +28,33 @@ export async function GET(request) {
     console.log('[FLUX status]', data?.status, JSON.stringify(data).slice(0, 200));
 
     if (data?.status === 'Ready') {
-      const imageUrl = data.sample ?? data.result ?? data.output ?? data.image_url;
-      if (!imageUrl) {
-        return NextResponse.json({ error: 'Ready but no image URL in response: ' + JSON.stringify(data) }, { status: 500 });
+      const bflUrl = data.sample ?? data.result ?? data.output ?? data.image_url;
+      if (!bflUrl) {
+        return NextResponse.json({ error: 'Ready but no image URL: ' + JSON.stringify(data) }, { status: 500 });
       }
-      return NextResponse.json({ status: 'ready', imageUrl });
+
+      // Fetch the image from BFL (requires auth) and upload to Cloudinary for public access
+      const imgRes = await fetch(bflUrl, {
+        headers: { 'Authorization': `Bearer ${process.env.COMET_API_KEY}` },
+      });
+      if (!imgRes.ok) {
+        return NextResponse.json({ error: `Failed to fetch generated image: ${imgRes.status}` }, { status: 502 });
+      }
+      const buffer = await imgRes.arrayBuffer();
+      const dataUri = `data:image/jpeg;base64,${Buffer.from(buffer).toString('base64')}`;
+      const upload = await cloudinary.uploader.upload(dataUri, {
+        folder: 'engage-socially/ai-generated',
+        resource_type: 'image',
+      });
+
+      console.log('[FLUX] uploaded to Cloudinary:', upload.secure_url);
+      return NextResponse.json({ status: 'ready', imageUrl: upload.secure_url });
     }
 
     if (data?.status === 'Error' || data?.status === 'Failed') {
       return NextResponse.json({ status: 'failed', error: `Generation ${data.status}` }, { status: 500 });
     }
 
-    // Still pending (Pending / Processing / etc.)
     return NextResponse.json({ status: 'pending' });
   } catch (err) {
     console.error('[Status error]', err.message);

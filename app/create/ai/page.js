@@ -217,7 +217,7 @@ export default function AIGeneratePage() {
 
         {/* Right: Generated images */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Generated Creatives</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Generated Creative</label>
           {generating ? (
             <div className="aspect-square rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 flex flex-col items-center justify-center gap-3">
               <div className="w-8 h-8 border-3 border-violet-500 border-t-transparent rounded-full animate-spin" style={{ borderWidth: 3 }} />
@@ -225,11 +225,11 @@ export default function AIGeneratePage() {
               <p className="text-xs text-gray-400">This takes about 15–30 seconds</p>
             </div>
           ) : images.length > 0 ? (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="flex justify-center">
               {images.map((url, i) => (
-                <div key={i} className="group relative aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-100">
+                <div key={i} className="group relative aspect-square w-full rounded-xl overflow-hidden border border-gray-200 bg-gray-100">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={url} alt={`Variation ${i + 1}`} className="w-full h-full object-cover" />
+                  <img src={url} alt="Generated creative" className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                     <button
                       onClick={() => useImage(url)}
@@ -238,9 +238,6 @@ export default function AIGeneratePage() {
                       Use This
                     </button>
                   </div>
-                  <span className="absolute top-2 left-2 w-6 h-6 rounded-full bg-black/50 text-white text-xs flex items-center justify-center font-medium">
-                    {i + 1}
-                  </span>
                 </div>
               ))}
             </div>
