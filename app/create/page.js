@@ -1,19 +1,27 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 const STEPS = { idle: 'idle', uploading: 'uploading', publishing: 'publishing', done: 'done' };
 
 export default function CreatePostPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const fileInput = useRef(null);
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
+  const [aiImageUrl, setAiImageUrl] = useState(null); // pre-filled from AI generator
   const [caption, setCaption] = useState('');
   const [step, setStep] = useState(STEPS.idle);
   const [error, setError] = useState('');
   const [dragging, setDragging] = useState(false);
+
+  // Pre-fill from AI generator via ?imageUrl=...
+  useEffect(() => {
+    const url = searchParams.get('imageUrl');
+    if (url) { setAiImageUrl(url); setPreview(url); }
+  }, [searchParams]);
 
   // Bypass React's synthetic event system — attach native listener directly.
   // React's event delegation can misfire for file inputs when the page is
@@ -63,34 +71,44 @@ export default function CreatePostPage() {
   }
 
   function removeImage(e) {
-    e.preventDefault(); // prevent label from re-opening file picker
+    e.preventDefault();
     setFile(null);
     setPreview(null);
+    setAiImageUrl(null);
     if (fileInput.current) fileInput.current.value = '';
   }
 
   async function publish() {
-    if (!file) {
+    if (!file && !aiImageUrl) {
       setError('Please select an image.');
       return;
     }
     setError('');
 
     try {
-      // Step 1: Upload image
-      setStep(STEPS.uploading);
-      const formData = new FormData();
-      formData.append('file', file);
-      const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
-      const uploadData = await uploadRes.json();
-      if (!uploadRes.ok) throw new Error(uploadData.error || 'Upload failed');
+      let imageUrl;
+
+      if (aiImageUrl) {
+        // AI-generated image — already hosted, skip upload
+        setStep(STEPS.publishing);
+        imageUrl = aiImageUrl;
+      } else {
+        // Step 1: Upload image
+        setStep(STEPS.uploading);
+        const formData = new FormData();
+        formData.append('file', file);
+        const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
+        const uploadData = await uploadRes.json();
+        if (!uploadRes.ok) throw new Error(uploadData.error || 'Upload failed');
+        imageUrl = uploadData.url;
+      }
 
       // Step 2: Publish to Instagram
       setStep(STEPS.publishing);
       const publishRes = await fetch('/api/instagram/publish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageUrl: uploadData.url, caption }),
+        body: JSON.stringify({ imageUrl, caption }),
       });
       const publishData = await publishRes.json();
       if (publishRes.status === 401) throw new Error('Not authenticated — please reconnect your Instagram account from the sidebar.');
@@ -231,7 +249,7 @@ export default function CreatePostPage() {
             <div className="flex gap-3 pt-2">
               <button
                 onClick={publish}
-                disabled={isBusy || !file}
+                disabled={isBusy || (!file && !aiImageUrl)}
                 className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-xl font-medium hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity shadow-md shadow-blue-500/20"
               >
                 {isBusy ? 'Publishing…' : 'Publish Now'}
