@@ -101,7 +101,7 @@ export default function CommentsModal({ post, onClose }) {
               <p className="text-sm text-red-500 text-center py-10">{error}</p>
             )}
             {!loading && !error && (
-              <CommentThreads comments={comments} mediaId={post.id} />
+              <CommentThreads comments={comments} mediaId={post.id} postCaption={post.caption} />
             )}
           </div>
         </div>

@@ -34,13 +34,14 @@ function ReplyItem({ reply }) {
   );
 }
 
-function CommentItem({ comment, mediaId }) {
+function CommentItem({ comment, mediaId, postCaption }) {
   const [showReply, setShowReply] = useState(false);
   const [showDm, setShowDm] = useState(false);
   const [replyText, setReplyText] = useState('');
   const [dmText, setDmText] = useState('');
   const [sending, setSending] = useState(false);
   const [sendingDm, setSendingDm] = useState(false);
+  const [generatingReply, setGeneratingReply] = useState(false);
   const [replies, setReplies] = useState(comment.replies?.data ?? []);
   const [replyError, setReplyError] = useState('');
   const [dmError, setDmError] = useState('');
@@ -102,6 +103,31 @@ function CommentItem({ comment, mediaId }) {
     }
   }
 
+  async function generateAiReply() {
+    setGeneratingReply(true);
+    setReplyError('');
+    try {
+      const res = await fetch('/api/instagram/ai-reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          commentText: comment.text,
+          username: comment.username,
+          postCaption,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to generate reply');
+      setReplyText(data.suggestion);
+      setShowReply(true);
+      setShowDm(false);
+    } catch (err) {
+      setReplyError(err.message);
+    } finally {
+      setGeneratingReply(false);
+    }
+  }
+
   return (
     <div className="py-4 border-b border-gray-100 last:border-0">
       <div className="flex gap-3">
@@ -118,6 +144,27 @@ function CommentItem({ comment, mediaId }) {
               className="text-xs text-gray-400 hover:text-violet-600 transition-colors"
             >
               {showReply ? 'Cancel' : 'Reply'}
+            </button>
+            <button
+              onClick={generateAiReply}
+              disabled={generatingReply}
+              className="text-xs text-gray-400 hover:text-emerald-600 transition-colors flex items-center gap-1 disabled:opacity-50"
+            >
+              {generatingReply ? (
+                <span className="flex items-center gap-1">
+                  <svg className="animate-spin" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                  </svg>
+                  AI…
+                </span>
+              ) : (
+                <span className="flex items-center gap-1">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                  </svg>
+                  AI Reply
+                </span>
+              )}
             </button>
             {recipientId && (
               <button
@@ -192,7 +239,7 @@ function CommentItem({ comment, mediaId }) {
   );
 }
 
-export default function CommentThreads({ comments, mediaId }) {
+export default function CommentThreads({ comments, mediaId, postCaption }) {
   if (!comments?.length) {
     return (
       <div className="text-center py-10 text-gray-400 text-sm">
@@ -204,7 +251,7 @@ export default function CommentThreads({ comments, mediaId }) {
   return (
     <div>
       {comments.map((comment) => (
-        <CommentItem key={comment.id} comment={comment} mediaId={mediaId} />
+        <CommentItem key={comment.id} comment={comment} mediaId={mediaId} postCaption={postCaption} />
       ))}
     </div>
   );

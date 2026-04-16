@@ -34,14 +34,8 @@ export async function GET(request) {
         return NextResponse.json({ error: 'Ready but no image URL: ' + JSON.stringify(data) }, { status: 500 });
       }
 
-      // Fetch the image from BFL (URL is pre-signed, no auth header needed)
-      const imgRes = await fetch(bflUrl);
-      if (!imgRes.ok) {
-        return NextResponse.json({ error: `Failed to fetch generated image: ${imgRes.status}` }, { status: 502 });
-      }
-      const buffer = await imgRes.arrayBuffer();
-      const dataUri = `data:image/jpeg;base64,${Buffer.from(buffer).toString('base64')}`;
-      const upload = await cloudinary.uploader.upload(dataUri, {
+      // Let Cloudinary fetch directly from the pre-signed Azure URL
+      const upload = await cloudinary.uploader.upload(bflUrl, {
         folder: 'engage-socially/ai-generated',
         resource_type: 'image',
       });
