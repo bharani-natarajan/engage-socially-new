@@ -20,7 +20,7 @@ export async function POST(request) {
       ? `The comment is on an Instagram post with this caption: "${postCaption}"\n\n`
       : '';
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
     const result = await model.generateContent(
       `${context}A user named @${username ?? 'someone'} left this comment: "${commentText}"\n\nWrite a friendly, engaging Instagram reply in 1-2 sentences. Be warm and authentic. Do not use hashtags. Reply only with the reply text, nothing else.`
     );
