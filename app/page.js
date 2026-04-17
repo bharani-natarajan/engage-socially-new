@@ -221,48 +221,59 @@ export default function DashboardPage() {
                   <h3 className="text-2xl font-bold text-lord-text-main leading-none">
                     {commentsLoading ? <span className="inline-block w-16 h-7 bg-gray-100 rounded-xl animate-pulse" /> : avgCommentsPerPost}
                   </h3>
-                  <span className="px-2 py-0.5 rounded-full bg-lord-green-light text-lord-green-dark text-[11px] font-bold">last 10 posts</span>
+                  <span className="px-2 py-0.5 rounded-full bg-lord-green-light text-lord-green-dark text-[11px] font-bold">
+                    {last10.length} posts
+                  </span>
                 </div>
 
-                {(() => {
+                {commentsLoading || last10.length === 0 ? (
+                  <div className="h-[130px] mt-4 flex items-center justify-center text-[11px] text-gray-300">
+                    {commentsLoading ? 'Loading…' : 'No data'}
+                  </div>
+                ) : (() => {
                   const vals = last10.map((p) => p.comments);
                   const max = Math.max(...vals, 1);
-                  const W = 200;
-                  const H = 80;
-                  const pad = 4;
-                  const points = vals.map((v, i) => {
-                    const x = vals.length === 1 ? W / 2 : (i / (vals.length - 1)) * (W - pad * 2) + pad;
-                    const y = H - pad - ((v / max) * (H - pad * 2));
-                    return [x, y];
-                  });
-                  const polyline = points.map((p) => p.join(',')).join(' ');
-                  const maxIdx = vals.indexOf(max);
-                  const [mx, my] = points[maxIdx] ?? [W / 2, H / 2];
+                  const barW = 14;
+                  const gap = 6;
+                  const chartH = 80;
+                  const labelH = 16;
+                  const totalW = vals.length * (barW + gap) - gap;
+
                   return (
-                    <div className="h-[120px] w-full mt-6 relative">
-                      {/* Grid lines */}
-                      <div className="absolute inset-0 flex flex-col justify-between">
-                        {[0,1,2,3].map((i) => <div key={i} className="border-b border-gray-100 border-dashed w-full" />)}
+                    <div className="mt-4 overflow-hidden">
+                      <svg width="100%" viewBox={`0 0 ${totalW} ${chartH + labelH}`} preserveAspectRatio="xMidYMax meet">
+                        {vals.map((v, i) => {
+                          const bh = Math.max(3, (v / max) * chartH);
+                          const x = i * (barW + gap);
+                          const y = chartH - bh;
+                          const isMax = v === max;
+                          return (
+                            <g key={i}>
+                              <rect x={x} y={y} width={barW} height={bh} rx="4" fill={isMax ? '#407088' : '#c5dce8'} />
+                              <text
+                                x={x + barW / 2}
+                                y={y - 3}
+                                textAnchor="middle"
+                                fontSize="7"
+                                fontWeight={isMax ? '700' : '500'}
+                                fill={isMax ? '#407088' : '#9ca3af'}
+                              >{v}</text>
+                              <text x={x + barW / 2} y={chartH + labelH - 2} textAnchor="middle" fontSize="7" fill="#9ca3af">
+                                {i + 1}
+                              </text>
+                            </g>
+                          );
+                        })}
+                        {/* x-axis line */}
+                        <line x1="0" y1={chartH} x2={totalW} y2={chartH} stroke="#e5e7eb" strokeWidth="1" />
+                      </svg>
+                      <div className="flex items-center justify-between mt-1 text-[9px] text-gray-400 font-medium">
+                        <span>Post 1 (latest)</span>
+                        <span>Post {last10.length}</span>
                       </div>
-                      {commentsLoading || vals.length === 0 ? (
-                        <div className="absolute inset-0 flex items-center justify-center text-[11px] text-gray-300">Loading…</div>
-                      ) : (
-                        <svg width="100%" height="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="overflow-visible absolute inset-0">
-                          <polyline points={polyline} fill="none" stroke="#87afc2" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
-                          <circle cx={mx} cy={my} r="5" fill="#f0f6f8" stroke="#407088" strokeWidth="2.5" />
-                          <foreignObject x={mx - 28} y={my + 8} width="56" height="22">
-                            <div className="bg-[#171a1c] text-white text-[9px] font-bold px-2 py-1 rounded-full text-center whitespace-nowrap">{max} comments</div>
-                          </foreignObject>
-                        </svg>
-                      )}
                     </div>
                   );
                 })()}
-
-                <div className="flex items-center gap-1.5 mt-2">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                  <p className="text-[10px] font-medium text-gray-400">Based on your last {last10.length} posts</p>
-                </div>
             </div>
         </div>
 
@@ -286,13 +297,21 @@ export default function DashboardPage() {
                 </div>
               </div>
 
+              {/* Total Comments — same style as likes */}
+              <div className="flex gap-4">
+                <div className="w-12 h-12 bg-blue-50 overflow-hidden rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                  <svg width="18" height="18" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                </div>
+                <div>
+                  <h2 className="text-[44px] font-bold tracking-tight text-lord-text-main leading-none">
+                    {commentsLoading ? <span className="inline-block w-24 h-10 bg-gray-100 rounded-xl animate-pulse" /> : totalComments.toLocaleString()}
+                  </h2>
+                  <p className="text-[12px] text-lord-text-muted mt-2 font-medium">Total comments</p>
+                </div>
+              </div>
+
               {/* Replied / Not replied mini-blocks */}
               <div className="flex flex-col gap-2 w-[160px] flex-shrink-0">
-                {/* Total comments */}
-                <div className="flex items-center justify-between px-1 mb-1">
-                  <span className="text-[11px] font-semibold text-lord-text-muted">Total comments</span>
-                  <span className="text-[13px] font-bold text-lord-text-main">{commentsLoading ? '…' : totalComments.toLocaleString()}</span>
-                </div>
                 {/* Replied */}
                 <div className="rounded-[20px] bg-lord-teal p-3.5 text-white flex flex-col justify-center">
                   <div className="flex items-center justify-between w-full mb-1">
