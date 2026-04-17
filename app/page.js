@@ -107,6 +107,7 @@ export default function DashboardPage() {
   const [checkedTotal, setCheckedTotal] = useState(0);
   const [last10, setLast10] = useState([]);
   const [avgCommentsPerPost, setAvgCommentsPerPost] = useState(0);
+  const [uniqueCommenters, setUniqueCommenters] = useState(0);
   const [commentsLoading, setCommentsLoading] = useState(true);
   const [replyingAll, setReplyingAll] = useState(false);
   const [replyAllDone, setReplyAllDone] = useState(0);
@@ -124,6 +125,7 @@ export default function DashboardPage() {
         setCheckedTotal(d.checkedTotal ?? 0);
         setLast10(d.last10 ?? []);
         setAvgCommentsPerPost(d.avgCommentsPerPost ?? 0);
+        setUniqueCommenters(d.uniqueCommenters ?? 0);
       })
       .catch(() => {})
       .finally(() => setCommentsLoading(false));
@@ -370,38 +372,79 @@ export default function DashboardPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-             {/* Small Bottom Left Widget: Track your team */}
+             {/* Commenters breakdown widget */}
              <div className="bg-white rounded-[32px] shadow-sm p-6 relative">
-                 <button className="absolute top-6 right-6 w-8 h-8 flex items-center justify-center rounded-full border border-lord-border text-lord-text-main hover:bg-gray-50"><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
-                 <p className="text-[11px] text-lord-text-muted font-medium mb-1">Total employee</p>
-                 <h3 className="text-xl font-bold text-lord-text-main">Track your team</h3>
+                 <p className="text-[11px] text-lord-text-muted font-medium mb-1">Instagram</p>
+                 <h3 className="text-xl font-bold text-lord-text-main">Commenters</h3>
 
-                 <div className="mt-8 mb-4 flex justify-center relative">
-                    <svg width="180" height="90" viewBox="0 0 180 90">
-                       <path d="M15,80 A65,65 0 0,1 165,80" fill="none" stroke="#f0f2f5" strokeWidth="26" strokeLinecap="butt"/>
-                       <path d="M15,80 A65,65 0 0,1 85,18" fill="none" stroke="#83d395" strokeWidth="26" strokeLinecap="butt"/>
-                       <path d="M88,17 A65,65 0 0,1 145,40" fill="none" stroke="#407088" strokeWidth="26" strokeLinecap="butt"/>
-                    </svg>
-                    <div className="absolute flex flex-col items-center justify-end" style={{ bottom: '-6px', left: 0, right: 0 }}>
-                       <p className="text-[34px] font-bold text-lord-text-main leading-tight tracking-tight mb-0">120</p>
-                       <p className="text-[10px] font-semibold text-lord-text-muted pb-1">Total members</p>
-                    </div>
-                 </div>
+                 {(() => {
+                   const total = totalComments;
+                   const unique = uniqueCommenters;
+                   const repeat = Math.max(0, total - unique);
+                   const cx = 90, cy = 80, r = 75;
 
-                 <div className="mt-6 space-y-3">
-                    <div className="flex items-center justify-between text-[12px] font-medium text-lord-text-main">
-                       <div className="flex items-center gap-2"><div className="w-3.5 h-3.5 rounded-full bg-lord-green"></div> Designer</div>
-                       <span className="font-bold">48 members</span>
-                    </div>
-                    <div className="flex items-center justify-between text-[12px] font-medium text-lord-text-main">
-                       <div className="flex items-center gap-2"><div className="w-3.5 h-3.5 rounded-full bg-lord-teal"></div> Developer</div>
-                       <span className="font-bold">27 members</span>
-                    </div>
-                    <div className="flex items-center justify-between text-[12px] font-medium text-lord-text-muted">
-                       <div className="flex items-center gap-2"><div className="w-3.5 h-3.5 rounded-full bg-gray-200"></div> Project manager</div>
-                       <span className="font-bold text-lord-text-main">18 members</span>
-                    </div>
-                 </div>
+                   function pt(pct) {
+                     const angle = (1 - pct) * Math.PI; // 180° → 0°
+                     return [cx + r * Math.cos(angle), cy - r * Math.sin(angle)];
+                   }
+
+                   const p1 = total > 0 ? unique / total : 0;
+                   const [x1, y1] = pt(p1);
+                   const laf1 = p1 > 0.5 ? 1 : 0;
+                   const laf2 = (1 - p1) > 0.5 ? 1 : 0;
+
+                   return (
+                     <>
+                       <div className="mt-6 mb-2 flex justify-center relative">
+                         <svg width="180" height="90" viewBox="0 0 180 90">
+                           {/* Background arc */}
+                           <path d="M15,80 A75,75 0 0,1 165,80" fill="none" stroke="#f0f2f5" strokeWidth="26" strokeLinecap="butt"/>
+                           {commentsLoading || total === 0 ? null : (
+                             <>
+                               {/* Unique commenters — green */}
+                               {p1 > 0 && (
+                                 <path
+                                   d={`M15,80 A75,75 0 ${laf1},1 ${x1.toFixed(1)},${y1.toFixed(1)}`}
+                                   fill="none" stroke="#83d395" strokeWidth="26" strokeLinecap="butt"
+                                 />
+                               )}
+                               {/* Repeat commenters — teal */}
+                               {p1 < 1 && (
+                                 <path
+                                   d={`M${x1.toFixed(1)},${y1.toFixed(1)} A75,75 0 ${laf2},1 165,80`}
+                                   fill="none" stroke="#407088" strokeWidth="26" strokeLinecap="butt"
+                                 />
+                               )}
+                             </>
+                           )}
+                         </svg>
+                         <div className="absolute flex flex-col items-center justify-end" style={{ bottom: '-6px', left: 0, right: 0 }}>
+                           <p className="text-[34px] font-bold text-lord-text-main leading-tight tracking-tight mb-0">
+                             {commentsLoading ? '…' : total.toLocaleString()}
+                           </p>
+                           <p className="text-[10px] font-semibold text-lord-text-muted pb-1">Total comments</p>
+                         </div>
+                       </div>
+
+                       <div className="mt-6 space-y-3">
+                         <div className="flex items-center justify-between text-[12px] font-medium text-lord-text-main">
+                           <div className="flex items-center gap-2"><div className="w-3.5 h-3.5 rounded-full bg-lord-green" /> Unique commenters</div>
+                           <span className="font-bold">{commentsLoading ? '…' : unique.toLocaleString()}</span>
+                         </div>
+                         <div className="flex items-center justify-between text-[12px] font-medium text-lord-text-main">
+                           <div className="flex items-center gap-2"><div className="w-3.5 h-3.5 rounded-full bg-lord-teal" /> Repeat commenters</div>
+                           <span className="font-bold">{commentsLoading ? '…' : repeat.toLocaleString()}</span>
+                         </div>
+                         <div className="flex items-center justify-between text-[12px] font-medium text-lord-text-muted">
+                           <div className="flex items-center gap-2"><div className="w-3.5 h-3.5 rounded-full bg-gray-200" /> Unique %</div>
+                           <span className="font-bold text-lord-text-main">
+                             {commentsLoading || total === 0 ? '—' : `${Math.round((unique / total) * 100)}%`}
+                           </span>
+                         </div>
+                       </div>
+                     </>
+                   );
+                 })()}
              </div>
              
              {/* Small Bottom Right Widget: Talent recruitment */}
