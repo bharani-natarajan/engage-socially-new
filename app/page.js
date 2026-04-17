@@ -105,6 +105,8 @@ export default function DashboardPage() {
   const [repliedCount, setRepliedCount] = useState(0);
   const [unansweredCount, setUnansweredCount] = useState(0);
   const [checkedTotal, setCheckedTotal] = useState(0);
+  const [last10, setLast10] = useState([]);
+  const [avgCommentsPerPost, setAvgCommentsPerPost] = useState(0);
   const [commentsLoading, setCommentsLoading] = useState(true);
   const [replyingAll, setReplyingAll] = useState(false);
   const [replyAllDone, setReplyAllDone] = useState(0);
@@ -120,6 +122,8 @@ export default function DashboardPage() {
         setRepliedCount(d.repliedCount ?? 0);
         setUnansweredCount(d.unansweredCount ?? 0);
         setCheckedTotal(d.checkedTotal ?? 0);
+        setLast10(d.last10 ?? []);
+        setAvgCommentsPerPost(d.avgCommentsPerPost ?? 0);
       })
       .catch(() => {})
       .finally(() => setCommentsLoading(false));
@@ -212,42 +216,52 @@ export default function DashboardPage() {
 
             {/* Average Work Time */}
             <div className="bg-white rounded-[32px] p-6 shadow-sm relative">
-                <p className="text-[12px] text-lord-text-muted font-semibold mb-1">Average work time</p>
+                <p className="text-[12px] text-lord-text-muted font-semibold mb-1">Avg comments / post</p>
                 <div className="flex items-center justify-between">
-                   <h3 className="text-2xl font-bold text-lord-text-main leading-none">46 hours</h3>
-                   <span className="px-2 py-0.5 rounded-full bg-lord-green-light text-lord-green-dark text-[11px] font-bold">+0.5% ↑</span>
-                </div>
-                
-                <div className="h-[120px] w-full mt-6 relative flex flex-col justify-between pt-2">
-                   {/* Y-axis labels */}
-                   <div className="absolute left-0 top-0 bottom-6 flex flex-col justify-between text-[9px] font-bold text-gray-400">
-                      <span>10 H</span>
-                      <span>8 H</span>
-                      <span>6 H</span>
-                      <span>4 H</span>
-                   </div>
-                   
-                   {/* Grid lines */}
-                   <div className="absolute left-8 right-0 top-1 bottom-6 flex flex-col justify-between">
-                      <div className="border-b border-gray-100 border-dashed w-full"/>
-                      <div className="border-b border-gray-100 border-dashed w-full"/>
-                      <div className="border-b border-gray-100 border-dashed w-full"/>
-                      <div className="border-b border-gray-100 border-dashed w-full"/>
-                   </div>
-                   
-                   {/* Line Graph Mock */}
-                   <div className="absolute left-6 right-0 top-0 bottom-6 flex items-center">
-                       <svg width="100%" height="100%" viewBox="0 0 200 80" preserveAspectRatio="none" className="overflow-visible">
-                          <polyline points="0,50 30,35 70,60 110,25 150,55 200,15" fill="none" stroke="#87afc2" strokeWidth="3" strokeLinejoin="round" />
-                          <circle cx="110" cy="25" r="5" fill="#f0f6f8" stroke="#407088" strokeWidth="2.5" />
-                       </svg>
-                       <div className="absolute left-[55%] bottom-[-2] -translate-x-1/2 bg-[#171a1c] text-white text-[9px] font-bold px-2 py-1 rounded-full whitespace-nowrap">8 Hours</div>
-                   </div>
+                  <h3 className="text-2xl font-bold text-lord-text-main leading-none">
+                    {commentsLoading ? <span className="inline-block w-16 h-7 bg-gray-100 rounded-xl animate-pulse" /> : avgCommentsPerPost}
+                  </h3>
+                  <span className="px-2 py-0.5 rounded-full bg-lord-green-light text-lord-green-dark text-[11px] font-bold">last 10 posts</span>
                 </div>
 
+                {(() => {
+                  const vals = last10.map((p) => p.comments);
+                  const max = Math.max(...vals, 1);
+                  const W = 200;
+                  const H = 80;
+                  const pad = 4;
+                  const points = vals.map((v, i) => {
+                    const x = vals.length === 1 ? W / 2 : (i / (vals.length - 1)) * (W - pad * 2) + pad;
+                    const y = H - pad - ((v / max) * (H - pad * 2));
+                    return [x, y];
+                  });
+                  const polyline = points.map((p) => p.join(',')).join(' ');
+                  const maxIdx = vals.indexOf(max);
+                  const [mx, my] = points[maxIdx] ?? [W / 2, H / 2];
+                  return (
+                    <div className="h-[120px] w-full mt-6 relative">
+                      {/* Grid lines */}
+                      <div className="absolute inset-0 flex flex-col justify-between">
+                        {[0,1,2,3].map((i) => <div key={i} className="border-b border-gray-100 border-dashed w-full" />)}
+                      </div>
+                      {commentsLoading || vals.length === 0 ? (
+                        <div className="absolute inset-0 flex items-center justify-center text-[11px] text-gray-300">Loading…</div>
+                      ) : (
+                        <svg width="100%" height="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="overflow-visible absolute inset-0">
+                          <polyline points={polyline} fill="none" stroke="#87afc2" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+                          <circle cx={mx} cy={my} r="5" fill="#f0f6f8" stroke="#407088" strokeWidth="2.5" />
+                          <foreignObject x={mx - 28} y={my + 8} width="56" height="22">
+                            <div className="bg-[#171a1c] text-white text-[9px] font-bold px-2 py-1 rounded-full text-center whitespace-nowrap">{max} comments</div>
+                          </foreignObject>
+                        </svg>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 <div className="flex items-center gap-1.5 mt-2">
-                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                   <p className="text-[10px] font-medium text-gray-400">Total work hours include extra hours</p>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                  <p className="text-[10px] font-medium text-gray-400">Based on your last {last10.length} posts</p>
                 </div>
             </div>
         </div>

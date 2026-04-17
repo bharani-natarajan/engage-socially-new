@@ -57,6 +57,13 @@ export async function GET() {
     // Sort unanswered by most recent first, cap at 20
     unanswered.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
+    // Last 10 posts with comment counts for graph
+    const last10 = posts.slice(0, 10).map((p) => ({
+      id: p.id,
+      comments: p.comments_count ?? 0,
+    }));
+    const avgCommentsPerPost = totalPosts > 0 ? Math.round(totalComments / totalPosts) : 0;
+
     const latestPost = posts[0];
     const latestPostPreview = latestPost ? {
       image: latestPost.thumbnail_url ?? latestPost.media_url ?? null,
@@ -74,6 +81,8 @@ export async function GET() {
       checkedTotal,
       unansweredCount,
       repliedCount,
+      last10,
+      avgCommentsPerPost,
       latestPostPreview,
     });
   } catch (err) {
