@@ -6,8 +6,9 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 export async function GET() {
-  const { error, userId, token } = await requireAuth();
+  const { error, tokens } = await requireAuth();
   if (error) return error;
+  const { userId, accessToken: token } = tokens;
 
   try {
     const mediaData = await getMedia(userId, token);
