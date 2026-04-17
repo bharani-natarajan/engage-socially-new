@@ -1,8 +1,7 @@
 import './globals.css';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import Sidebar from '@/components/Sidebar';
-import Header from '@/components/Header';
+import TopNav from '@/components/TopNav';
 
 export const metadata = {
   title: 'Engage Socially',
@@ -20,15 +19,14 @@ export default async function RootLayout({ children }) {
 
   return (
     <html lang="en">
-      <body className="bg-[#F4F7FE] font-sans antialiased text-gray-700">
-        <div className="flex h-screen overflow-hidden">
-          <Sidebar isConnected={isConnected} />
-          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-            <Header />
-            <main className="flex-1 overflow-y-auto overflow-x-hidden p-6">
+      <body className="bg-lord-bg font-sans antialiased text-lord-text-main">
+        <div className="flex flex-col h-screen overflow-hidden">
+          <TopNav />
+          <main className="flex-1 overflow-y-auto overflow-x-hidden p-8">
+            <div className="max-w-[1400px] mx-auto w-full">
               {children}
-            </main>
-          </div>
+            </div>
+          </main>
         </div>
       </body>
     </html>

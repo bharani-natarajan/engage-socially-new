@@ -127,27 +127,27 @@ export default function CreatePostPage() {
   return (
     <div className="max-w-5xl mx-auto">
       {step === STEPS.done ? (
-        <div className="flex flex-col items-center justify-center py-24 text-center bg-white rounded-2xl border border-gray-100 shadow-sm">
-          <div className="w-16 h-16 rounded-2xl bg-green-50 flex items-center justify-center mb-4">
+        <div className="flex flex-col items-center justify-center py-24 text-center bg-lord-card rounded-[32px] border border-none shadow-sm shadow-sm">
+          <div className="w-16 h-16 rounded-[32px] bg-green-50 flex items-center justify-center mb-4">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="20 6 9 17 4 12" />
             </svg>
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-1">Published!</h2>
-          <p className="text-gray-400 text-sm">Redirecting to Posts…</p>
+          <h2 className="text-xl font-bold text-lord-text-main mb-1">Published!</h2>
+          <p className="text-lord-text-muted text-sm">Redirecting to Posts…</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Left: Image upload */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-3">
-            <label className="block text-sm font-semibold text-gray-800">Image</label>
+          <div className="bg-lord-card rounded-[32px] border border-none shadow-sm shadow-sm p-6 space-y-3">
+            <label className="block text-sm font-semibold text-lord-text-main">Image</label>
             <input ref={fileInput} id="file-upload" type="file" accept="image/jpeg,image/png,image/webp" disabled={isBusy} className="hidden" />
 
             {preview ? (
-              <div className="relative aspect-square rounded-2xl overflow-hidden border border-gray-100 bg-gray-50">
+              <div className="relative aspect-square rounded-[32px] overflow-hidden border border-none shadow-sm bg-gray-50">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={preview} alt="Preview" className="w-full h-full object-cover" />
-                <button onClick={removeImage} disabled={isBusy} className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white shadow-md flex items-center justify-center text-gray-500 hover:text-red-500 transition-all disabled:opacity-40">
+                <button onClick={removeImage} disabled={isBusy} className="absolute top-3 right-3 w-8 h-8 rounded-full bg-lord-card shadow-md flex items-center justify-center text-lord-text-muted hover:text-red-500 transition-all disabled:opacity-40">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
               </div>
@@ -158,24 +158,24 @@ export default function CreatePostPage() {
                 onDragLeave={(e) => { e.preventDefault(); setDragging(false); }}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={onDrop}
-                className={`aspect-square rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-3 transition-colors select-none ${isBusy ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${dragging ? 'border-green-400 bg-green-50' : 'border-gray-200 bg-gray-50 hover:border-green-400 hover:bg-green-50/40'}`}
+                className={`aspect-square rounded-[32px] border-2 border-dashed flex flex-col items-center justify-center gap-3 transition-colors select-none ${isBusy ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${dragging ? 'border-green-400 bg-green-50' : 'border-gray-200 bg-gray-50 hover:border-green-400 hover:bg-green-50/40'}`}
               >
-                <div className="w-14 h-14 rounded-2xl bg-white shadow-sm border border-gray-100 flex items-center justify-center">
+                <div className="w-14 h-14 rounded-[32px] bg-lord-card shadow-sm border border-none shadow-sm flex items-center justify-center">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                 </div>
                 <div className="text-center">
-                  <p className="text-sm font-semibold text-gray-700">Drop image here</p>
-                  <p className="text-xs text-gray-400 mt-0.5">or click to browse</p>
+                  <p className="text-sm font-semibold text-lord-text-main">Drop image here</p>
+                  <p className="text-xs text-lord-text-muted mt-0.5">or click to browse</p>
                 </div>
-                <p className="text-xs text-gray-400">JPEG · PNG · WebP · max 8 MB</p>
+                <p className="text-xs text-lord-text-muted">JPEG · PNG · WebP · max 8 MB</p>
               </label>
             )}
           </div>
 
           {/* Right: Caption + actions */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col space-y-5">
+          <div className="bg-lord-card rounded-[32px] border border-none shadow-sm shadow-sm p-6 flex flex-col space-y-5">
             <div className="flex-1 space-y-2">
-              <label className="block text-sm font-semibold text-gray-800">Caption</label>
+              <label className="block text-sm font-semibold text-lord-text-main">Caption</label>
               <textarea
                 value={caption}
                 onChange={(e) => setCaption(e.target.value)}
@@ -183,18 +183,18 @@ export default function CreatePostPage() {
                 rows={8}
                 maxLength={2200}
                 disabled={isBusy}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-100 focus:border-green-400 transition-colors resize-none disabled:opacity-50"
+                className="w-full bg-gray-50 border border-gray-200 rounded-[24px] px-4 py-3 text-sm text-lord-text-main placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-100 focus:border-green-400 transition-colors resize-none disabled:opacity-50"
               />
               <div className="flex justify-end">
-                <span className="text-xs text-gray-400">{caption.length}/2200</span>
+                <span className="text-xs text-lord-text-muted">{caption.length}/2200</span>
               </div>
             </div>
 
-            {error && <div className="p-3 rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm">{error}</div>}
+            {error && <div className="p-3 rounded-[24px] bg-red-50 border border-red-100 text-red-600 text-sm">{error}</div>}
 
             {isBusy && (
-              <div className="flex items-center gap-3 p-4 rounded-xl bg-green-50 border border-green-100">
-                <div className="w-4 h-4 border-2 border-green-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+              <div className="flex items-center gap-3 p-4 rounded-[24px] bg-green-50 border border-green-100">
+                <div className="w-4 h-4 border-2 border-lord-green border-t-transparent rounded-full animate-spin flex-shrink-0" />
                 <p className="text-sm text-green-700">{step === STEPS.uploading ? 'Uploading image…' : 'Publishing to Instagram…'}</p>
               </div>
             )}
@@ -202,7 +202,7 @@ export default function CreatePostPage() {
             <button
               onClick={publish}
               disabled={isBusy || (!file && !aiImageUrl)}
-              className="w-full py-3 bg-green-500 hover:bg-green-600 text-white rounded-xl font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm shadow-green-500/30"
+              className="w-full py-3 bg-lord-green hover:bg-lord-green-dark text-white rounded-[24px] font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm shadow-green-500/30"
             >
               {isBusy ? 'Publishing…' : 'Publish Now'}
             </button>
