@@ -100,6 +100,11 @@ function CommentRow({ comment, onReplied }) {
 export default function DashboardPage() {
   const [latestPost, setLatestPost] = useState(null);
   const [topComments, setTopComments] = useState([]);
+  const [totalLikes, setTotalLikes] = useState(0);
+  const [totalComments, setTotalComments] = useState(0);
+  const [repliedCount, setRepliedCount] = useState(0);
+  const [unansweredCount, setUnansweredCount] = useState(0);
+  const [checkedTotal, setCheckedTotal] = useState(0);
   const [commentsLoading, setCommentsLoading] = useState(true);
   const [replyingAll, setReplyingAll] = useState(false);
   const [replyAllDone, setReplyAllDone] = useState(0);
@@ -110,6 +115,11 @@ export default function DashboardPage() {
       .then((d) => {
         if (d.latestPostPreview) setLatestPost(d.latestPostPreview);
         setTopComments((d.unansweredComments ?? []).slice(0, 5));
+        setTotalLikes(d.totalLikes ?? 0);
+        setTotalComments(d.totalComments ?? 0);
+        setRepliedCount(d.repliedCount ?? 0);
+        setUnansweredCount(d.unansweredCount ?? 0);
+        setCheckedTotal(d.checkedTotal ?? 0);
       })
       .catch(() => {})
       .finally(() => setCommentsLoading(false));
@@ -245,44 +255,55 @@ export default function DashboardPage() {
         {/* ================= MIDDLE COLUMN ================= */}
         <div className="flex flex-col gap-6">
           
-          {/* Top Wide Widget: 46,5 */}
+          {/* Top Wide Widget: Likes & Comments */}
           <div className="rounded-[32px] bg-white p-6 shadow-sm flex flex-col justify-between min-h-[240px]">
             <div className="flex items-start justify-between">
-              
+
+              {/* Total Likes */}
               <div className="flex gap-4">
-                <div className="w-12 h-12 bg-lord-teal overflow-hidden rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                   <svg width="16" height="16" fill="none" stroke="white" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M2 12h20"/><path d="M12 2A15.3 15.3 0 0 1 16 12 15.3 15.3 0 0 1 12 22 15.3 15.3 0 0 1 8 12 15.3 15.3 0 0 1 12 2z"/></svg>
+                <div className="w-12 h-12 bg-red-100 overflow-hidden rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                  <svg width="18" height="18" fill="#ef4444" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
                 </div>
                 <div>
-                  <div className="flex items-center gap-3">
-                     <h2 className="text-[44px] font-bold tracking-tight text-lord-text-main leading-none">
-                        46,5
-                     </h2>
-                     <span className="px-2.5 py-0.5 rounded-full bg-lord-green text-lord-card text-[11px] font-bold">+0.5%</span>
-                  </div>
-                  <p className="text-[12px] text-lord-text-muted mt-2 font-medium">avg hours / weeks</p>
+                  <h2 className="text-[44px] font-bold tracking-tight text-lord-text-main leading-none">
+                    {commentsLoading ? <span className="inline-block w-24 h-10 bg-gray-100 rounded-xl animate-pulse" /> : totalLikes.toLocaleString()}
+                  </h2>
+                  <p className="text-[12px] text-lord-text-muted mt-2 font-medium">Total likes</p>
                 </div>
               </div>
-              
-              {/* Nested Right blocks */}
+
+              {/* Replied / Not replied mini-blocks */}
               <div className="flex flex-col gap-2 w-[160px] flex-shrink-0">
-                 <div className="rounded-[20px] bg-lord-teal p-3.5 text-white flex flex-col justify-center">
-                    <div className="flex items-center justify-between w-full mb-1">
-                       <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center"><svg width="12" height="12" fill="none" stroke="currentcolor" strokeWidth="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
-                       <span className="text-[10px] font-bold bg-white text-lord-teal px-2 py-0.5 rounded-full flex items-center gap-1">+2.6% ↓</span>
+                {/* Replied */}
+                <div className="rounded-[20px] bg-lord-teal p-3.5 text-white flex flex-col justify-center">
+                  <div className="flex items-center justify-between w-full mb-1">
+                    <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
+                      <svg width="12" height="12" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
                     </div>
-                    <div className="flex items-end gap-2 mt-1">
-                       <p className="text-2xl font-bold">80%</p>
-                       <p className="text-[10px] opacity-80 leading-tight pb-1">Onsite<br/>team</p>
+                    <span className="text-[10px] font-bold bg-white text-lord-teal px-2 py-0.5 rounded-full">Replied</span>
+                  </div>
+                  <div className="flex items-end gap-2 mt-1">
+                    <p className="text-2xl font-bold">
+                      {commentsLoading ? '…' : checkedTotal === 0 ? '0%' : `${Math.round((repliedCount / checkedTotal) * 100)}%`}
+                    </p>
+                    <p className="text-[10px] opacity-80 leading-tight pb-1">{commentsLoading ? '' : `${repliedCount} of ${checkedTotal}`}</p>
+                  </div>
+                </div>
+                {/* Not replied */}
+                <div className="rounded-[20px] bg-white border-2 border-lord-border p-3.5 flex flex-col justify-center">
+                  <div className="flex items-center justify-between w-full mb-1">
+                    <div className="w-6 h-6 rounded-full bg-lord-orange/10 flex items-center justify-center">
+                      <svg width="12" height="12" fill="none" stroke="#f6a23c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                     </div>
-                 </div>
-                 <div className="rounded-[20px] bg-white border-2 border-lord-border p-3 flex items-center justify-between">
-                    <div className="w-6 h-6 rounded-full border border-lord-border flex items-center justify-center"><svg width="12" height="12" fill="none" stroke="#407088" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 2A15.3 15.3 0 0 1 16 12 15.3 15.3 0 0 1 12 22 15.3 15.3 0 0 1 8 12 15.3 15.3 0 0 1 12 2z"/></svg></div>
-                    <span className="text-[10px] font-bold text-lord-green flex items-center gap-1">+2.6% ↑</span>
-                    <div className="flex items-end gap-2 pr-1">
-                       <p className="text-xl font-bold text-lord-text-main">20%</p>
-                    </div>
-                 </div>
+                    <span className="text-[10px] font-bold text-lord-orange">Pending</span>
+                  </div>
+                  <div className="flex items-end gap-2">
+                    <p className="text-xl font-bold text-lord-text-main">
+                      {commentsLoading ? '…' : checkedTotal === 0 ? '0%' : `${Math.round((unansweredCount / checkedTotal) * 100)}%`}
+                    </p>
+                    <p className="text-[11px] text-lord-text-muted pb-0.5">{commentsLoading ? '' : `${unansweredCount} of ${checkedTotal}`}</p>
+                  </div>
+                </div>
               </div>
             </div>
             

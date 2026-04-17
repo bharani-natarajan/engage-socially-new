@@ -47,6 +47,13 @@ export async function GET() {
       }
     }
 
+    // Total comments checked across the recent posts
+    const checkedTotal = commentResults
+      .filter((r) => r.status === 'fulfilled')
+      .reduce((sum, r) => sum + r.value.comments.length, 0);
+    const unansweredCount = unanswered.length;
+    const repliedCount = checkedTotal - unansweredCount;
+
     // Sort unanswered by most recent first, cap at 20
     unanswered.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
@@ -64,6 +71,9 @@ export async function GET() {
       totalComments,
       uniqueCommenters: uniqueIds.size,
       unansweredComments: unanswered.slice(0, 20),
+      checkedTotal,
+      unansweredCount,
+      repliedCount,
       latestPostPreview,
     });
   } catch (err) {
