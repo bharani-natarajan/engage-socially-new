@@ -51,9 +51,12 @@ export async function GET() {
     unanswered.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
     const latestPost = posts[0];
-    const latestPostImage = latestPost
-      ? (latestPost.thumbnail_url ?? latestPost.media_url ?? null)
-      : null;
+    const latestPostPreview = latestPost ? {
+      image: latestPost.thumbnail_url ?? latestPost.media_url ?? null,
+      likes: latestPost.like_count ?? 0,
+      comments: latestPost.comments_count ?? 0,
+      permalink: latestPost.permalink ?? null,
+    } : null;
 
     return NextResponse.json({
       totalPosts,
@@ -61,7 +64,7 @@ export async function GET() {
       totalComments,
       uniqueCommenters: uniqueIds.size,
       unansweredComments: unanswered.slice(0, 20),
-      latestPostImage,
+      latestPostPreview,
     });
   } catch (err) {
     console.error('[Dashboard error]', err.message);
