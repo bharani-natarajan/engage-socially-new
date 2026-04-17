@@ -182,7 +182,7 @@ export default function DashboardPage() {
             {/* Performance Widgets block */}
             <div className="flex flex-col gap-6">
               {/* Top Wide Widget */}
-              <div className="rounded-[32px] bg-white p-6 shadow-sm flex flex-col justify-between h-[220px]">
+              <div className="rounded-[32px] bg-white p-6 shadow-sm flex flex-col justify-between min-h-[240px]">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-lord-teal overflow-hidden rounded-full flex items-center justify-center">
@@ -237,15 +237,15 @@ export default function DashboardPage() {
                  <p className="text-xs text-lord-text-muted uppercase font-semibold tracking-wide">Total followers</p>
                  <h3 className="text-lg font-bold text-lord-text-main mt-0.5">Track your audience</h3>
 
-                 <div className="mt-8 flex justify-center scale-110 relative">
-                    <svg width="140" height="70" viewBox="0 0 140 70">
-                       <path d="M10,70 A60,60 0 0,1 130,70" fill="none" stroke="#efefef" strokeWidth="20" strokeLinecap="butt"/>
-                       <path d="M10,70 A60,60 0 0,1 60,18" fill="none" stroke="#83d395" strokeWidth="20" strokeLinecap="butt"/>
-                       <path d="M62,17 A60,60 0 0,1 115,35" fill="none" stroke="#407088" strokeWidth="20" strokeLinecap="butt"/>
+                 <div className="mt-8 mb-4 flex justify-center relative">
+                    <svg width="180" height="90" viewBox="0 0 180 90">
+                       <path d="M15,90 A75,75 0 0,1 165,90" fill="none" stroke="#f0f2f5" strokeWidth="26" strokeLinecap="butt"/>
+                       <path d="M15,90 A75,75 0 0,1 85,18" fill="none" stroke="#83d395" strokeWidth="26" strokeLinecap="butt"/>
+                       <path d="M88,17 A75,75 0 0,1 145,40" fill="none" stroke="#407088" strokeWidth="26" strokeLinecap="butt"/>
                     </svg>
-                    <div className="absolute bottom-0 text-center">
-                       <p className="text-[28px] font-bold text-lord-text-main leading-tight">120K</p>
-                       <p className="text-[10px] uppercase font-bold text-lord-text-muted">Total members</p>
+                    <div className="absolute flex flex-col items-center justify-end" style={{ bottom: '-4px', left: 0, right: 0 }}>
+                       <p className="text-[32px] font-bold text-lord-text-main leading-tight mb-0">120K</p>
+                       <p className="text-[11px] font-bold text-lord-text-muted">TOTAL MEMBERS</p>
                     </div>
                  </div>
 
