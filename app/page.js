@@ -10,41 +10,43 @@ function timeAgo(ts) {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
-// -------------------------------------------------------------
-// Component: Status Pill (Waiting, Done, Failed)
-// Matches the "Waiting", "Done", "Failed" pills in Lordbank UI
-// -------------------------------------------------------------
+function StatCard({ label, value, icon, bg, iconColor }) {
+  return (
+    <div className="bg-lord-card rounded-[28px] p-6 flex items-center gap-5 shadow-sm">
+      <div className={`w-14 h-14 rounded-[18px] flex items-center justify-center flex-shrink-0 ${bg}`}>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={iconColor} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" dangerouslySetInnerHTML={{ __html: icon }} />
+      </div>
+      <div>
+        <p className="text-xs font-semibold text-lord-text-muted uppercase tracking-wider">{label}</p>
+        <p className="text-3xl font-bold text-lord-text-main mt-0.5">
+          {value === null
+            ? <span className="inline-block w-16 h-8 rounded-xl bg-lord-bg animate-pulse" />
+            : value.toLocaleString()}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function StatusPill({ status }) {
-  const isDone = status === 'done';
-  const isFailed = status === 'error';
-  const isGenerating = status === 'generating';
-  
-  if (isDone) {
-    return (
-      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-lord-green text-lord-green text-xs font-semibold">
-        <span className="w-1.5 h-1.5 rounded-full bg-lord-green" /> Done
-      </span>
-    );
-  }
-  if (isFailed) {
-    return (
-      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-lord-red text-lord-red text-xs font-semibold">
-        <span className="w-1.5 h-1.5 rounded-full bg-lord-red" /> Failed
-      </span>
-    );
-  }
-  if (isGenerating) {
-    return (
-      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-lord-orange text-lord-orange text-xs font-semibold">
-        <span className="w-1.5 h-1.5 rounded-full bg-lord-orange animate-pulse" /> Replying
-      </span>
-    );
-  }
-  
-  // Default "Waiting" (idle)
+  if (status === 'done') return (
+    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-lord-green text-lord-green-dark text-xs font-semibold">
+      <span className="w-1.5 h-1.5 rounded-full bg-lord-green" />Done
+    </span>
+  );
+  if (status === 'error') return (
+    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-lord-red text-lord-red text-xs font-semibold">
+      <span className="w-1.5 h-1.5 rounded-full bg-lord-red" />Failed
+    </span>
+  );
+  if (status === 'generating') return (
+    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-lord-orange text-lord-orange text-xs font-semibold">
+      <span className="w-1.5 h-1.5 rounded-full bg-lord-orange animate-pulse" />Replying…
+    </span>
+  );
   return (
     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-lord-orange text-lord-orange text-xs font-semibold">
-      <span className="w-1.5 h-1.5 rounded-full bg-lord-orange" /> Waiting
+      <span className="w-1.5 h-1.5 rounded-full bg-lord-orange" />Waiting
     </span>
   );
 }
@@ -62,7 +64,7 @@ function CommentRow({ item, onReplied }) {
         body: JSON.stringify({ commentText: item.text, username: item.username, postCaption: item.postCaption }),
       });
       const aiData = await aiRes.json();
-      if (!aiRes.ok) throw new Error(aiData.error || 'AI run failed');
+      if (!aiRes.ok) throw new Error(aiData.error);
 
       const replyRes = await fetch('/api/instagram/comments', {
         method: 'POST',
@@ -72,31 +74,35 @@ function CommentRow({ item, onReplied }) {
       if (!replyRes.ok) throw new Error('Reply failed');
 
       setStatus('done');
-      setTimeout(() => onReplied(item.commentId), 1000);
-    } catch (err) {
+      setTimeout(() => onReplied(item.commentId), 1200);
+    } catch {
       setStatus('error');
     }
   }
 
   return (
-    <div className="flex items-center justify-between py-4 border-b border-lord-border/60 last:border-0 cursor-pointer hover:bg-lord-border/20 px-2 transition-colors rounded-xl" onClick={autoReply}>
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-lord-bg overflow-hidden flex-shrink-0">
+    <div
+      className="flex items-center justify-between py-3.5 px-3 border-b border-lord-border last:border-0 rounded-xl hover:bg-lord-bg/60 cursor-pointer transition-colors"
+      onClick={autoReply}
+    >
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="w-10 h-10 rounded-full bg-lord-bg flex-shrink-0 overflow-hidden">
           {item.postThumb ? (
-             /* eslint-disable-next-line @next/next/no-img-element */
+            // eslint-disable-next-line @next/next/no-img-element
             <img src={item.postThumb} alt="" className="w-full h-full object-cover" />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-300 font-bold bg-gradient-to-tr from-gray-200 to-gray-100">
-               {item.username.charAt(0).toUpperCase()}
+            <div className="w-full h-full flex items-center justify-center text-lord-text-muted font-bold text-sm">
+              {item.username.charAt(0).toUpperCase()}
             </div>
           )}
         </div>
-        <div>
-          <p className="text-[14px] font-semibold text-lord-text-main leading-tight">{item.username}</p>
-          <p className="text-[12px] text-lord-text-muted mt-0.5 line-clamp-1 max-w-[150px]">${item.text}</p>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-lord-text-main leading-tight">@{item.username}</p>
+          <p className="text-xs text-lord-text-muted mt-0.5 truncate max-w-[220px]">{item.text}</p>
         </div>
       </div>
-      <div>
+      <div className="flex items-center gap-3 flex-shrink-0 ml-3">
+        <span className="text-xs text-lord-text-muted hidden sm:block">{timeAgo(item.timestamp)}</span>
         <StatusPill status={status} />
       </div>
     </div>
@@ -106,11 +112,15 @@ function CommentRow({ item, onReplied }) {
 export default function DashboardPage() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [replyingAll, setReplyingAll] = useState(false);
+  const [replyAllDone, setReplyAllDone] = useState(0);
 
   useEffect(() => {
     fetch('/api/instagram/dashboard')
       .then((r) => r.json())
-      .then((d) => { if (!d.error) setStats(d); })
+      .then((d) => { if (d.error) throw new Error(d.error); setStats(d); })
+      .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
 
@@ -121,236 +131,127 @@ export default function DashboardPage() {
     }));
   }, []);
 
-  const unanswered = stats?.unansweredComments ?? [
-    // Pre-fill dummy matching the Lordbank names for visual fidelity if no real data
-    { commentId: '1', username: 'Syafanah san', text: 'Love this!', postCaption: '', timestamp: Date.now() },
-    { commentId: '2', username: 'Devon Lane', text: 'Amazing work here', postCaption: '', timestamp: Date.now() },
-    { commentId: '3', username: 'Marvin McKinney', text: 'How do I buy?', postCaption: '', timestamp: Date.now() },
-    { commentId: '4', username: 'Eleanor Pena', text: 'Is this available?', postCaption: '', timestamp: Date.now() },
-  ];
+  async function replyToAll() {
+    if (!stats?.unansweredComments?.length) return;
+    setReplyingAll(true);
+    setReplyAllDone(0);
+    for (const item of [...stats.unansweredComments]) {
+      try {
+        const aiRes = await fetch('/api/instagram/ai-reply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ commentText: item.text, username: item.username, postCaption: item.postCaption }),
+        });
+        const aiData = await aiRes.json();
+        if (!aiRes.ok) continue;
+        const replyRes = await fetch('/api/instagram/comments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ commentId: item.commentId, message: aiData.suggestion }),
+        });
+        if (replyRes.ok) { setReplyAllDone((n) => n + 1); removeComment(item.commentId); }
+      } catch { /* continue */ }
+    }
+    setReplyingAll(false);
+  }
+
+  const unanswered = stats?.unansweredComments ?? [];
 
   return (
     <div className="space-y-6">
-      {/* Top Action Row */}
-      <div className="flex items-center justify-between mb-8 pb-2">
+      {/* Greeting */}
+      <div className="flex items-center justify-between">
         <div>
-          <p className="text-[13px] text-lord-text-muted font-medium mb-1">Portal &gt; <span className="text-lord-text-main">Dashboard</span></p>
-          <h1 className="text-3xl font-bold tracking-tight text-lord-text-main">Good morning Administrator</h1>
+          <h1 className="text-2xl font-bold text-lord-text-main">Good morning 👋</h1>
+          <p className="text-sm text-lord-text-muted mt-0.5">Here's your Instagram overview</p>
         </div>
-        
-        <div className="flex items-center gap-3">
-          <button className="px-5 py-2.5 rounded-full bg-white text-lord-text-main text-sm font-semibold border border-lord-border/80 flex items-center gap-2 hover:bg-gray-50 transition-colors">
-            <span>+</span> Add widget
+        {unanswered.length > 0 && (
+          <button
+            onClick={replyToAll}
+            disabled={replyingAll}
+            className="flex items-center gap-2 px-5 py-2.5 bg-lord-green hover:bg-lord-green-dark disabled:opacity-60 text-white text-sm font-semibold rounded-full transition-colors shadow-sm"
+          >
+            {replyingAll ? (
+              <><svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>Replying {replyAllDone}/{unanswered.length + replyAllDone}…</>
+            ) : (
+              <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Auto Reply All ({unanswered.length})</>
+            )}
           </button>
-          <button className="px-5 py-2.5 rounded-full bg-white text-lord-text-main text-sm font-semibold border border-lord-border/80 flex items-center gap-2 hover:bg-gray-50 transition-colors">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            18 - 22 November
-          </button>
-          <button className="px-5 py-2.5 rounded-full bg-lord-green text-lord-card text-sm font-semibold shadow-sm hover:opacity-90 transition-opacity">
-             Add report
-          </button>
-        </div>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6 items-start">
-        {/* Left Side Wide Content */}
-        <div className="flex flex-col gap-6">
-          
-          <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-6">
-            {/* Account Info Card (Profile) */}
-            <div className="w-full lg:w-[320px] rounded-[32px] overflow-hidden relative min-h-[380px] bg-gradient-to-b from-teal-100 to-lord-bg p-6 flex flex-col justify-end">
-              {/* Profile Mock Image - we use a generic placeholder representing the Chris Jonathan element */}
-              <div className="absolute inset-0 bg-[#d8ebf0]" /> 
-              {/* The "4+ years experience" pill */}
-              <div className="absolute top-[45%] left-1/2 -translate-x-1/2 px-4 py-2 bg-[#1b1f22] text-white rounded-full text-xs font-semibold flex items-center gap-2 shadow-lg w-max z-10">
-                 {loading ? '...' : (stats?.totalPosts || '10+')} Instagram Posts <span className="text-lord-green">✦</span>
-              </div>
-              
-              {/* Glass context bar */}
-              <div className="relative z-10 w-full rounded-3xl bg-black/10 backdrop-blur-md border border-white/20 p-5 mt-auto flex items-center justify-between shadow-[0_8px_32px_rgba(0,0,0,0.1)]">
-                <div>
-                  <p className="text-white font-semibold text-lg leading-tight">Social Account</p>
-                  <p className="text-white/80 text-[13px] mt-0.5">Connected Manager</p>
-                </div>
-                <div className="flex gap-2">
-                  <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center cursor-pointer shadow-sm"><svg width="14" height="14" fill="none" stroke="#407088" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></div>
-                  <div className="w-9 h-9 rounded-full bg-[#1b1f22] flex items-center justify-center cursor-pointer shadow-sm"><svg width="14" height="14" fill="none" stroke="white" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div>
-                </div>
-              </div>
-            </div>
+      {error && (
+        <div className="p-4 rounded-[20px] bg-red-50 border border-red-100 text-red-600 text-sm">{error}</div>
+      )}
 
-            {/* Performance Widgets block */}
-            <div className="flex flex-col gap-6">
-              {/* Top Wide Widget */}
-              <div className="rounded-[32px] bg-white p-6 shadow-sm flex flex-col justify-between min-h-[240px]">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-lord-teal overflow-hidden rounded-full flex items-center justify-center">
-                       <svg width="20" height="20" fill="none" stroke="white" strokeWidth="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                    </div>
-                    <div>
-                      <div className="flex items-end gap-3">
-                         <h2 className="text-4xl font-bold tracking-tight text-lord-text-main leading-none">
-                            {loading ? '--' : ((stats?.totalLikes || 46) + 0.5).toFixed(1)}
-                         </h2>
-                         <span className="px-2 py-0.5 rounded-full bg-lord-green text-white text-[11px] font-bold mb-1">+0.5%</span>
-                      </div>
-                      <p className="text-[13px] text-lord-text-muted mt-1 font-medium">avg interactions / posts</p>
-                    </div>
-                  </div>
-                  
-                  {/* Nested Right blocks */}
-                  <div className="flex flex-col gap-2 w-[160px]">
-                     <div className="rounded-2xl bg-lord-teal p-3.5 text-white flex flex-col justify-center">
-                        <div className="flex items-center justify-between w-full mb-1">
-                           <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center"><svg width="12" height="12" fill="none" stroke="currentcolor" strokeWidth="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
-                           <span className="text-[10px] font-bold bg-white text-lord-teal px-1.5 py-0.5 rounded-full flex items-center gap-0.5">+2.6% <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="12 19 12 5"/><polyline points="5 12 12 5 19 12"/></svg></span>
-                        </div>
-                        <p className="text-2xl font-bold mt-1">80%</p>
-                        <p className="text-[11px] opacity-80 leading-none mt-1">Organic reach</p>
-                     </div>
-                     <div className="rounded-2xl bg-white border border-lord-border p-3 flex items-center gap-3">
-                        <p className="text-xl font-bold">20%</p>
-                        <p className="text-[11px] text-lord-text-muted font-medium leading-tight">Direct<br/>reach</p>
-                     </div>
-                  </div>
-                </div>
-                
-                {/* Dots Graph mockup */}
-                <div className="flex gap-1.5 items-end h-12 px-2 mt-4 ml-2">
-                   {[2,1,3,2,4,3,2,1,1,3,2,1,0,3,4,3,2,2].map((v, i) => (
-                      <div key={i} className="flex flex-col gap-1 w-2.5">
-                         {[...Array(5)].map((_, j) => (
-                            <div key={j} className={`w-2.5 h-2.5 rounded-full ${j >= 5 - v ? 'bg-lord-teal' : 'bg-transparent'}`} />
-                         ))}
-                      </div>
-                   ))}
-                </div>
-              </div>
-            </div>
+      {/* Stat Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          label="Total Posts"
+          value={loading ? null : stats?.totalPosts ?? 0}
+          bg="bg-lord-green-light"
+          iconColor="#6eb87e"
+          icon='<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>'
+        />
+        <StatCard
+          label="Total Likes"
+          value={loading ? null : stats?.totalLikes ?? 0}
+          bg="bg-red-50"
+          iconColor="#f87171"
+          icon='<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>'
+        />
+        <StatCard
+          label="Total Comments"
+          value={loading ? null : stats?.totalComments ?? 0}
+          bg="bg-blue-50"
+          iconColor="#60a5fa"
+          icon='<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>'
+        />
+        <StatCard
+          label="Unique Commenters"
+          value={loading ? null : stats?.uniqueCommenters ?? 0}
+          bg="bg-amber-50"
+          iconColor="#fbbf24"
+          icon='<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'
+        />
+      </div>
+
+      {/* Unanswered Comments Panel */}
+      <div className="bg-lord-card rounded-[28px] shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-lord-border">
+          <div>
+            <h3 className="text-base font-bold text-lord-text-main">Unanswered Comments</h3>
+            <p className="text-xs text-lord-text-muted mt-0.5">
+              {loading ? 'Loading…' : `${unanswered.length} comment${unanswered.length !== 1 ? 's' : ''} waiting — click any row to auto-reply`}
+            </p>
           </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr] gap-6">
-             {/* Small Bottom Left Widget: Track Audience */}
-             <div className="bg-white rounded-[32px] shadow-sm p-6 relative">
-                 <button className="absolute top-6 right-6 w-8 h-8 flex items-center justify-center rounded-full bg-lord-bg hover:bg-gray-200 text-gray-500"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
-                 <p className="text-xs text-lord-text-muted uppercase font-semibold tracking-wide">Total followers</p>
-                 <h3 className="text-lg font-bold text-lord-text-main mt-0.5">Track your audience</h3>
-
-                 <div className="mt-8 mb-4 flex justify-center relative">
-                    <svg width="180" height="90" viewBox="0 0 180 90">
-                       <path d="M15,90 A75,75 0 0,1 165,90" fill="none" stroke="#f0f2f5" strokeWidth="26" strokeLinecap="butt"/>
-                       <path d="M15,90 A75,75 0 0,1 85,18" fill="none" stroke="#83d395" strokeWidth="26" strokeLinecap="butt"/>
-                       <path d="M88,17 A75,75 0 0,1 145,40" fill="none" stroke="#407088" strokeWidth="26" strokeLinecap="butt"/>
-                    </svg>
-                    <div className="absolute flex flex-col items-center justify-end" style={{ bottom: '-4px', left: 0, right: 0 }}>
-                       <p className="text-[32px] font-bold text-lord-text-main leading-tight mb-0">120K</p>
-                       <p className="text-[11px] font-bold text-lord-text-muted">TOTAL MEMBERS</p>
-                    </div>
-                 </div>
-
-                 <div className="mt-8 space-y-3">
-                    <div className="flex items-center justify-between text-[13px] font-semibold text-lord-text-main">
-                       <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-lord-green"></div> Organic</div>
-                       <span>48 members</span>
-                    </div>
-                    <div className="flex items-center justify-between text-[13px] font-semibold text-lord-text-main">
-                       <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-lord-teal"></div> Referral</div>
-                       <span>27 members</span>
-                    </div>
-                    <div className="flex items-center justify-between text-[13px] font-semibold text-lord-text-muted">
-                       <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-gray-200"></div> Paid ads</div>
-                       <span>18 members</span>
-                    </div>
-                 </div>
-             </div>
-             
-             {/* Small Bottom Right Widget: Talent recruitment */}
-             <div className="bg-white rounded-[32px] shadow-sm p-6 relative">
-                 <button className="absolute top-6 right-6 w-8 h-8 flex items-center justify-center rounded-full bg-lord-bg hover:bg-gray-200 text-gray-500"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
-                 <p className="text-xs text-lord-text-muted uppercase font-semibold tracking-wide">Engagement statistics</p>
-                 <h3 className="text-lg font-bold text-lord-text-main mt-0.5">Engagement growth</h3>
-                 
-                 <div className="flex gap-3 mt-6">
-                    <div className="w-[80px] h-[80px] rounded-[24px] bg-[#fdf5f2] overflow-hidden">
-                       <div className="w-full h-full bg-orange-100 flex items-center justify-center text-orange-400 font-bold">M</div>
-                    </div>
-                    <div className="w-[80px] h-[80px] rounded-[24px] bg-[#f0f4ec] overflow-hidden">
-                       <div className="w-full h-full bg-green-50 flex items-center justify-center text-green-400 font-bold">D</div>
-                    </div>
-                    <div className="w-[80px] h-[80px] rounded-[24px] bg-lord-teal text-white flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-lord-teal-dark transition-colors">
-                       <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-                       <span className="text-[10px] font-medium">Join call</span>
-                    </div>
-                 </div>
-
-                 <div className="mt-8">
-                    <div className="flex items-center justify-between text-[11px] font-bold text-lord-text-main mb-3">
-                       <span>120 Interactions</span>
-                       <span>80 Interactions</span>
-                    </div>
-                    <div className="flex gap-1.5 h-10 items-end">
-                       {[...Array(18)].map((_, i) => (
-                           <div key={i} className={`flex-1 rounded-sm ${i < 12 ? 'bg-lord-green' : 'bg-gray-200'}`} style={{ height: `${40 + Math.random()*60}%`}} />
-                       ))}
-                    </div>
-                    <div className="flex gap-4 items-center justify-center mt-3">
-                       <div className="flex items-center gap-1.5 text-[11px] font-semibold text-lord-text-muted"><div className="w-2 h-2 rounded-full bg-lord-green" /> Matched</div>
-                       <div className="flex items-center gap-1.5 text-[11px] font-semibold text-lord-text-muted"><div className="w-2 h-2 rounded-full bg-gray-200" /> Not match</div>
-                    </div>
-                 </div>
-             </div>
+          {/* Legend */}
+          <div className="hidden sm:flex items-center gap-3 text-xs text-lord-text-muted">
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-lord-orange" />Waiting</span>
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-lord-green" />Done</span>
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-lord-red" />Failed</span>
           </div>
         </div>
 
-        {/* Right Side Column (Salaries and incentive map -> Unanswered Comments) */}
-        <div className="bg-white rounded-[32px] p-6 shadow-sm flex flex-col h-full sticky top-8 border-none">
-          <p className="text-xs text-lord-text-muted font-semibold tracking-wide">Action needed</p>
-          <h2 className="text-[22px] font-bold text-lord-text-main mt-0.5 mb-6">Review Interactions</h2>
-          
-          <div className="flex flex-col flex-1">
-            <div className="mb-8">
-               {unanswered.map((u, i) => (
-                  <CommentRow key={u.commentId || i} item={u} onReplied={removeComment} />
-               ))}
-               {unanswered.length === 0 && (
-                 <p className="text-sm text-lord-text-muted py-4">All caught up!</p>
-               )}
+        <div className="px-4 py-2">
+          {loading ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="w-6 h-6 border-2 border-lord-green border-t-transparent rounded-full animate-spin" />
             </div>
-
-            {/* Inner Dark Widget Matching "Basic salary" module */}
-            <div className="mt-auto bg-lord-teal rounded-[32px] text-white p-6 shadow-lg shadow-lord-teal/20 relative">
-               <div className="absolute top-2right-2 w-16 h-16 bg-white/5 rounded-full blur-xl pointer-events-none" />
-               <div className="w-full bg-lord-green rounded-full px-4 py-3 flex items-center justify-between text-[13px] font-bold text-lord-teal mb-4 cursor-pointer">
-                  <span>Auto respond block</span>
-                  <span>$2,040</span>
-               </div>
-               
-               <div className="w-full bg-white rounded-full px-4 py-3 flex items-center justify-between text-[13px] font-bold text-lord-text-main mb-6 cursor-pointer">
-                  <span>Perform limit</span>
-                  <span>$300</span>
-               </div>
-
-               <div className="flex justify-between items-end">
-                  <div>
-                     <p className="text-[13px] text-white/70 mb-1 font-semibold">Total comments handled</p>
-                     <p className="text-3xl font-bold">{loading ? '...' : (stats?.totalComments || 2540).toLocaleString()}</p>
-                     
-                     <div className="flex gap-2 mt-4 relative">
-                        <button className="w-9 h-9 rounded-full bg-white text-lord-teal flex items-center justify-center font-bold text-sm shadow-sm"><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16h16V8l-6-6z"/><path d="M14 2v6h6"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></button>
-                        <button className="w-9 h-9 rounded-full bg-lord-green text-lord-teal flex items-center justify-center font-bold text-sm shadow-sm"><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button>
-                        <div className="absolute -top-1 right-8 w-4 h-4 rounded-full bg-[#1b1f22] border-[1.5px] border-lord-teal flex items-center justify-center text-[9px] font-bold text-white leading-none">2</div>
-                     </div>
-                  </div>
-                  <div className="text-right">
-                     <p className="text-[13px] text-white/70 mb-1 font-semibold">Interaction rate</p>
-                     <p className="text-3xl font-bold tracking-tight">100%</p>
-                  </div>
-               </div>
+          ) : unanswered.length === 0 ? (
+            <div className="text-center py-16">
+              <div className="w-14 h-14 rounded-[20px] bg-lord-green-light flex items-center justify-center mx-auto mb-3">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6eb87e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <p className="text-sm font-semibold text-lord-text-main">All caught up!</p>
+              <p className="text-xs text-lord-text-muted mt-1">Every comment has been replied to.</p>
             </div>
-          </div>
+          ) : (
+            unanswered.map((item) => (
+              <CommentRow key={item.commentId} item={item} onReplied={removeComment} />
+            ))
+          )}
         </div>
-
       </div>
     </div>
   );
