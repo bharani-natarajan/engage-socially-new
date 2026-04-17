@@ -274,6 +274,11 @@ export default function DashboardPage() {
 
               {/* Replied / Not replied mini-blocks */}
               <div className="flex flex-col gap-2 w-[160px] flex-shrink-0">
+                {/* Total comments */}
+                <div className="flex items-center justify-between px-1 mb-1">
+                  <span className="text-[11px] font-semibold text-lord-text-muted">Total comments</span>
+                  <span className="text-[13px] font-bold text-lord-text-main">{commentsLoading ? '…' : totalComments.toLocaleString()}</span>
+                </div>
                 {/* Replied */}
                 <div className="rounded-[20px] bg-lord-teal p-3.5 text-white flex flex-col justify-center">
                   <div className="flex items-center justify-between w-full mb-1">
