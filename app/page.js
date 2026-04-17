@@ -32,24 +32,66 @@ function StatusPill({ status }) {
   );
 }
 
-function EmployeeRow({ name, amount, time, status, initial }) {
+function CommentRow({ comment, onReplied }) {
+  const [status, setStatus] = useState('idle'); // idle | replying | done | error
+
+  async function autoReply() {
+    if (status !== 'idle') return;
+    setStatus('replying');
+    try {
+      const aiRes = await fetch('/api/instagram/ai-reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ commentText: comment.text, username: comment.username, postCaption: comment.postCaption }),
+      });
+      const aiData = await aiRes.json();
+      if (!aiRes.ok) throw new Error(aiData.error);
+      const replyRes = await fetch('/api/instagram/comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ commentId: comment.commentId, message: aiData.suggestion }),
+      });
+      if (!replyRes.ok) throw new Error('Reply failed');
+      setStatus('done');
+      setTimeout(() => onReplied(comment.commentId), 1200);
+    } catch {
+      setStatus('error');
+    }
+  }
+
   return (
-    <div className="flex items-center justify-between py-3.5 border-b border-lord-border/60 last:border-0 hover:bg-lord-border/20 px-2 transition-colors rounded-xl cursor-pointer">
-      <div className="flex items-center gap-3">
+    <div className="flex items-center justify-between py-3.5 border-b border-lord-border/60 last:border-0 hover:bg-lord-border/20 px-2 transition-colors rounded-xl">
+      <div className="flex items-center gap-3 min-w-0">
         <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden flex-shrink-0 flex items-center justify-center font-bold text-gray-400">
-           {/* Fallback avatar */}
-           {initial}
+          {comment.username.charAt(0).toUpperCase()}
         </div>
         <div className="min-w-0">
-          <p className="text-[13px] font-semibold text-lord-text-main leading-tight">{name}</p>
-          <div className="flex items-center gap-1 mt-0.5 text-[11px] min-w-0">
-             <span className="text-lord-text-muted truncate max-w-[160px]">{amount}</span>
-             {time && <span className="text-lord-text-muted flex-shrink-0">{time}</span>}
-          </div>
+          <p className="text-[13px] font-semibold text-lord-text-main leading-tight">@{comment.username}</p>
+          <p className="text-[11px] text-lord-text-muted truncate max-w-[160px] mt-0.5">{comment.text}</p>
         </div>
       </div>
-      <div>
-        <StatusPill status={status} />
+      <div className="flex-shrink-0 ml-2">
+        {status === 'done' ? (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-lord-green text-lord-green text-[11px] font-bold">
+            <span className="w-1.5 h-1.5 rounded-full bg-lord-green" /> Done
+          </span>
+        ) : status === 'error' ? (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-lord-red text-lord-red text-[11px] font-bold">
+            <span className="w-1.5 h-1.5 rounded-full bg-lord-red" /> Failed
+          </span>
+        ) : (
+          <button
+            onClick={autoReply}
+            disabled={status === 'replying'}
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-lord-green text-lord-green text-[11px] font-bold hover:bg-lord-green hover:text-white transition-colors disabled:opacity-50"
+          >
+            {status === 'replying' ? (
+              <><svg className="animate-spin" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>Replying…</>
+            ) : (
+              <><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Auto Reply</>
+            )}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -59,6 +101,8 @@ export default function DashboardPage() {
   const [latestPost, setLatestPost] = useState(null);
   const [topComments, setTopComments] = useState([]);
   const [commentsLoading, setCommentsLoading] = useState(true);
+  const [replyingAll, setReplyingAll] = useState(false);
+  const [replyAllDone, setReplyAllDone] = useState(0);
 
   useEffect(() => {
     fetch('/api/instagram/dashboard')
@@ -70,6 +114,34 @@ export default function DashboardPage() {
       .catch(() => {})
       .finally(() => setCommentsLoading(false));
   }, []);
+
+  function removeComment(commentId) {
+    setTopComments((prev) => prev.filter((c) => c.commentId !== commentId));
+  }
+
+  async function replyToAll() {
+    if (!topComments.length || replyingAll) return;
+    setReplyingAll(true);
+    setReplyAllDone(0);
+    for (const c of [...topComments]) {
+      try {
+        const aiRes = await fetch('/api/instagram/ai-reply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ commentText: c.text, username: c.username, postCaption: c.postCaption }),
+        });
+        const aiData = await aiRes.json();
+        if (!aiRes.ok) continue;
+        const replyRes = await fetch('/api/instagram/comments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ commentId: c.commentId, message: aiData.suggestion }),
+        });
+        if (replyRes.ok) { setReplyAllDone((n) => n + 1); removeComment(c.commentId); }
+      } catch { /* continue */ }
+    }
+    setReplyingAll(false);
+  }
 
   return (
     <div className="space-y-6 pb-12">
@@ -313,8 +385,25 @@ export default function DashboardPage() {
 
         {/* ================= RIGHT COLUMN ================= */}
         <div className="w-full">
-           <p className="text-[12px] text-lord-text-muted font-medium mb-1">Instagram</p>
-           <h2 className="text-[24px] font-bold text-lord-text-main mb-5">Unanswered comments</h2>
+           <div className="flex items-start justify-between mb-5">
+             <div>
+               <p className="text-[12px] text-lord-text-muted font-medium mb-1">Instagram</p>
+               <h2 className="text-[24px] font-bold text-lord-text-main">Unanswered comments</h2>
+             </div>
+             {topComments.length > 0 && (
+               <button
+                 onClick={replyToAll}
+                 disabled={replyingAll}
+                 className="mt-1 flex items-center gap-1.5 px-4 py-2 rounded-full bg-lord-green text-white text-[12px] font-bold shadow-sm hover:bg-lord-green-dark disabled:opacity-50 transition-colors"
+               >
+                 {replyingAll ? (
+                   <><svg className="animate-spin" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>{replyAllDone}/{topComments.length + replyAllDone}…</>
+                 ) : (
+                   <><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Reply All</>
+                 )}
+               </button>
+             )}
+           </div>
 
            <div className="flex flex-col gap-1">
              {commentsLoading ? (
@@ -331,14 +420,7 @@ export default function DashboardPage() {
                <div className="py-10 text-center text-lord-text-muted text-[13px]">All caught up! No unanswered comments.</div>
              ) : (
                topComments.map((c) => (
-                 <EmployeeRow
-                   key={c.commentId}
-                   name={`@${c.username}`}
-                   amount={c.text}
-                   time={''}
-                   status="waiting"
-                   initial={c.username.charAt(0).toUpperCase()}
-                 />
+                 <CommentRow key={c.commentId} comment={c} onReplied={removeComment} />
                ))
              )}
            </div>
