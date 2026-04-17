@@ -50,12 +50,18 @@ export async function GET() {
     // Sort unanswered by most recent first, cap at 20
     unanswered.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
+    const latestPost = posts[0];
+    const latestPostImage = latestPost
+      ? (latestPost.thumbnail_url ?? latestPost.media_url ?? null)
+      : null;
+
     return NextResponse.json({
       totalPosts,
       totalLikes,
       totalComments,
       uniqueCommenters: uniqueIds.size,
       unansweredComments: unanswered.slice(0, 20),
+      latestPostImage,
     });
   } catch (err) {
     console.error('[Dashboard error]', err.message);

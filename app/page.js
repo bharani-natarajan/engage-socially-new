@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+
 // -------------------------------------------------------------
 // Component: Status Pill (Waiting, Done, Failed)
 // Matches the "Waiting", "Done", "Failed" pills in Lordbank UI
@@ -54,6 +56,15 @@ function EmployeeRow({ name, amount, time, status, initial }) {
 }
 
 export default function DashboardPage() {
+  const [latestPostImage, setLatestPostImage] = useState(null);
+
+  useEffect(() => {
+    fetch('/api/instagram/dashboard')
+      .then((r) => r.json())
+      .then((d) => { if (d.latestPostImage) setLatestPostImage(d.latestPostImage); })
+      .catch(() => {});
+  }, []);
+
   const employees = [
     { name: 'Syafanah san', amount: '$2.540.00', time: 'Today', status: 'waiting', initial: 'S' },
     { name: 'Devon Lane', amount: '$2.540.00', time: 'Today', status: 'done', initial: 'D' },
@@ -96,8 +107,13 @@ export default function DashboardPage() {
                  <div className="w-[80%] h-[90%] bg-gray-300 rounded-[80px]" /> 
               </div>
               
-              {/* Profile Mock Image - placeholder silhouette for Chris */}
-              <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=600')] bg-cover bg-center opacity-80" /> 
+              {/* Latest Instagram post image */}
+              {latestPostImage ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={latestPostImage} alt="Latest post" className="absolute inset-0 w-full h-full object-cover opacity-90" />
+              ) : (
+                <div className="absolute inset-0 bg-gray-200 animate-pulse" />
+              )}
               
               {/* The "4+ years experience" pill */}
               <div className="absolute top-[50%] left-1/2 -translate-x-1/2 px-4 py-2 bg-[#171a1c] text-white rounded-full text-[11px] font-bold flex items-center gap-2 shadow-lg w-max z-10 whitespace-nowrap">
