@@ -132,7 +132,7 @@ export default function CommentsModal({ post, onClose }) {
                 <p className="text-xs text-gray-400 mt-0.5">{comments.length} comment{comments.length !== 1 ? 's' : ''}</p>
               )}
               {autoReplying && (
-                <p className="text-xs text-violet-500 mt-0.5 flex items-center gap-1.5">
+                <p className="text-xs text-green-500 mt-0.5 flex items-center gap-1.5">
                   <svg className="animate-spin" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21 12a9 9 0 1 1-6.219-8.56" />
                   </svg>
@@ -155,7 +155,7 @@ export default function CommentsModal({ post, onClose }) {
           <div className="flex-1 overflow-y-auto px-5 py-2">
             {loading && (
               <div className="flex items-center justify-center py-16">
-                <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                <div className="w-5 h-5 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
               </div>
             )}
             {error && (

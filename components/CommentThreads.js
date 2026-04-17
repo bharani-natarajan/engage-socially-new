@@ -141,14 +141,14 @@ function CommentItem({ comment, mediaId, postCaption }) {
           <div className="flex items-center gap-3 mt-2">
             <button
               onClick={() => { setShowReply((v) => !v); setShowDm(false); }}
-              className="text-xs text-gray-400 hover:text-violet-600 transition-colors"
+              className="text-xs text-gray-400 hover:text-green-600 transition-colors"
             >
               {showReply ? 'Cancel' : 'Reply'}
             </button>
             <button
               onClick={generateAiReply}
               disabled={generatingReply}
-              className="text-xs text-gray-400 hover:text-emerald-600 transition-colors flex items-center gap-1 disabled:opacity-50"
+              className="text-xs text-gray-400 hover:text-green-600 transition-colors flex items-center gap-1 disabled:opacity-50"
             >
               {generatingReply ? (
                 <span className="flex items-center gap-1">
@@ -194,14 +194,14 @@ function CommentItem({ comment, mediaId, postCaption }) {
             value={replyText}
             onChange={(e) => setReplyText(e.target.value)}
             placeholder="Write a reply..."
-            className="flex-1 bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-violet-500 transition-colors"
+            className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-green-400 transition-colors"
             disabled={sending}
             autoFocus
           />
           <button
             type="submit"
             disabled={sending || !replyText.trim()}
-            className="px-3 py-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm rounded-lg transition-colors"
+            className="px-3 py-2 bg-green-500 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm rounded-lg transition-colors"
           >
             {sending ? '...' : 'Send'}
           </button>

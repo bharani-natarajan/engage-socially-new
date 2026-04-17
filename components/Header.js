@@ -1,46 +1,62 @@
+'use client';
+
+import { usePathname } from 'next/navigation';
+
+const PAGE_LABELS = {
+  '/': 'Dashboard',
+  '/posts': 'Posts',
+  '/create': 'Create Post',
+  '/create/ai': 'AI Generate',
+  '/messages': 'Messages',
+  '/settings': 'Settings',
+};
+
 export default function Header() {
+  const pathname = usePathname();
+  const pageLabel = PAGE_LABELS[pathname] ?? 'Dashboard';
+
   return (
-    <header className="h-20 bg-white border-b border-gray-100 flex items-center justify-between px-8 shrink-0 relative z-10 w-full rounded-tl-[2rem]">
-      {/* Search Bar - hidden on very small screens, visible on md+ */}
-      <div className="relative w-full max-w-md hidden md:block">
-        <svg
-          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-300 w-4 h-4"
-          fill="none" stroke="currentColor" viewBox="0 0 24 24"
-        >
-           <circle cx="11" cy="11" r="8"></circle>
-           <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-        </svg>
-        <input
-          type="text"
-          placeholder="eventure.com"
-          className="w-full bg-gray-50 border-none rounded-full py-2.5 pl-10 pr-4 text-sm focus:ring-2 focus:ring-blue-100 outline-none text-gray-600 placeholder-gray-400"
-        />
+    <header className="h-16 bg-white border-b border-gray-100 flex items-center justify-between px-6 shrink-0 z-10">
+      {/* Left: Breadcrumb */}
+      <div className="flex flex-col">
+        <p className="text-xs text-gray-400 font-medium">
+          Portal &rsaquo; <span className="text-green-500">{pageLabel}</span>
+        </p>
+        <h1 className="text-base font-bold text-gray-900 leading-tight">{pageLabel}</h1>
       </div>
 
-      <div className="flex-1 md:hidden"></div>
-
-      {/* Right Actions */}
-      <div className="flex items-center gap-6">
-        <div className="flex items-center gap-3">
-          <button className="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-50 transition-colors border border-gray-100 shadow-sm">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          </button>
-          <button className="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-50 transition-colors border border-gray-100 shadow-sm">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
-          </button>
-          <button className="relative w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-50 transition-colors border border-gray-100 shadow-sm">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-            <span className="absolute top-2 right-2 w-2 h-2 bg-red-400 rounded-full border-2 border-white"></span>
-          </button>
+      {/* Right */}
+      <div className="flex items-center gap-3">
+        {/* Search */}
+        <div className="relative hidden md:block">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            type="text"
+            placeholder="Search…"
+            className="bg-gray-50 border border-gray-100 rounded-xl py-2 pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-green-100 focus:border-green-300 text-gray-600 placeholder-gray-300 w-48 transition-all"
+          />
         </div>
 
-        <div className="flex items-center gap-3 pl-6 border-l border-gray-100">
-          <div className="flex flex-col items-end">
-            <span className="text-sm font-semibold text-gray-900 leading-tight">Maria Horwitz</span>
-            <span className="text-xs text-gray-400">Event Manager</span>
+        {/* Notification */}
+        <button className="relative w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors border border-gray-100">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+          </svg>
+          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-400 rounded-full border-2 border-white" />
+        </button>
+
+        {/* Profile */}
+        <div className="flex items-center gap-2.5 pl-3 border-l border-gray-100">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center text-white text-sm font-bold shadow-md shadow-green-500/20">
+            A
           </div>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="https://i.pravatar.cc/150?u=a042581f4e29026704d" alt="Profile" className="w-10 h-10 rounded-full cursor-pointer shadow-sm shadow-black/5" />
+          <div className="hidden md:block">
+            <p className="text-xs font-semibold text-gray-800 leading-tight">Admin</p>
+            <p className="text-xs text-gray-400">Instagram Manager</p>
+          </div>
         </div>
       </div>
     </header>
