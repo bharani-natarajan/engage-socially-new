@@ -3,10 +3,13 @@
 import { useEffect, useRef, useState } from 'react';
 import CommentThreads from './CommentThreads';
 
+const SETTING_AI_AUTO_REPLY = 'setting_ai_auto_reply';
+
 export default function CommentsModal({ post, onClose }) {
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [autoReplying, setAutoReplying] = useState(false);
   const backdropRef = useRef(null);
 
   useEffect(() => {
@@ -15,7 +18,57 @@ export default function CommentsModal({ post, onClose }) {
         const res = await fetch(`/api/instagram/comments?mediaId=${post.id}`);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed to load comments');
-        setComments(data.data ?? []);
+        const loaded = data.data ?? [];
+        setComments(loaded);
+
+        // Auto-reply if setting is enabled
+        if (localStorage.getItem(SETTING_AI_AUTO_REPLY) === 'true' && loaded.length > 0) {
+          const unanswered = loaded.filter((c) => !c.replies?.data?.length);
+          if (unanswered.length > 0) {
+            setAutoReplying(true);
+            for (const comment of unanswered) {
+              try {
+                const aiRes = await fetch('/api/instagram/ai-reply', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    commentText: comment.text,
+                    username: comment.username,
+                    postCaption: post.caption,
+                  }),
+                });
+                const aiData = await aiRes.json();
+                if (!aiRes.ok || !aiData.suggestion) continue;
+
+                const replyRes = await fetch('/api/instagram/comments', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ commentId: comment.id, message: aiData.suggestion }),
+                });
+                if (replyRes.ok) {
+                  setComments((prev) =>
+                    prev.map((c) =>
+                      c.id === comment.id
+                        ? {
+                            ...c,
+                            replies: {
+                              data: [
+                                ...(c.replies?.data ?? []),
+                                { id: Date.now().toString(), text: aiData.suggestion, username: 'me', timestamp: new Date().toISOString() },
+                              ],
+                            },
+                          }
+                        : c
+                    )
+                  );
+                }
+              } catch {
+                // skip failed auto-replies silently
+              }
+            }
+            setAutoReplying(false);
+          }
+        }
       } catch (err) {
         setError(err.message);
       } finally {
@@ -23,7 +76,7 @@ export default function CommentsModal({ post, onClose }) {
       }
     }
     load();
-  }, [post.id]);
+  }, [post.id, post.caption]);
 
   // Close on Escape
   useEffect(() => {
@@ -75,8 +128,16 @@ export default function CommentsModal({ post, onClose }) {
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
             <div>
               <h2 className="text-sm font-semibold text-gray-900">Comments</h2>
-              {!loading && (
+              {!loading && !autoReplying && (
                 <p className="text-xs text-gray-400 mt-0.5">{comments.length} comment{comments.length !== 1 ? 's' : ''}</p>
+              )}
+              {autoReplying && (
+                <p className="text-xs text-violet-500 mt-0.5 flex items-center gap-1.5">
+                  <svg className="animate-spin" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                  </svg>
+                  AI auto-replying…
+                </p>
               )}
             </div>
             <button
