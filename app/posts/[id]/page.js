@@ -201,7 +201,7 @@ export default async function PostDetailPage({ params }) {
           )}
         </h2>
         <div className="rounded-xl bg-white border border-gray-200 p-5">
-          <CommentThreads comments={comments} mediaId={id} />
+          <CommentThreads comments={comments} mediaId={id} postCaption={post.caption ?? ''} />
         </div>
       </div>
     </div>

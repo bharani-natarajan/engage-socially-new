@@ -34,6 +34,27 @@ function ReplyItem({ reply }) {
   );
 }
 
+async function callAiReply(commentText, username, postCaption) {
+  const res = await fetch('/api/instagram/ai-reply', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ commentText, username, postCaption }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'AI generation failed');
+  return data.suggestion;
+}
+
+async function callSendReply(commentId, message) {
+  const res = await fetch('/api/instagram/comments', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ commentId, message }),
+  });
+  if (!res.ok) throw new Error('Reply failed');
+  return res.json();
+}
+
 function CommentItem({ comment, mediaId, postCaption }) {
   const [showReply, setShowReply] = useState(false);
   const [showDm, setShowDm] = useState(false);
@@ -42,11 +63,14 @@ function CommentItem({ comment, mediaId, postCaption }) {
   const [sending, setSending] = useState(false);
   const [sendingDm, setSendingDm] = useState(false);
   const [generatingReply, setGeneratingReply] = useState(false);
+  const [autoReplying, setAutoReplying] = useState(false);
+  const [autoReplied, setAutoReplied] = useState(false);
   const [replies, setReplies] = useState(comment.replies?.data ?? []);
   const [replyError, setReplyError] = useState('');
   const [dmError, setDmError] = useState('');
   const [dmSent, setDmSent] = useState(false);
 
+  const hasReplies = replies.length > 0;
   const recipientId = comment.from?.id;
 
   async function submitReply(e) {
@@ -55,22 +79,8 @@ function CommentItem({ comment, mediaId, postCaption }) {
     setSending(true);
     setReplyError('');
     try {
-      const res = await fetch('/api/instagram/comments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ commentId: comment.id, message: replyText.trim() }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to send reply');
-      setReplies((prev) => [
-        ...prev,
-        {
-          id: data.id,
-          text: replyText.trim(),
-          username: 'me',
-          timestamp: new Date().toISOString(),
-        },
-      ]);
+      const data = await callSendReply(comment.id, replyText.trim());
+      setReplies((prev) => [...prev, { id: data.id, text: replyText.trim(), username: 'me', timestamp: new Date().toISOString() }]);
       setReplyText('');
       setShowReply(false);
     } catch (err) {
@@ -107,18 +117,8 @@ function CommentItem({ comment, mediaId, postCaption }) {
     setGeneratingReply(true);
     setReplyError('');
     try {
-      const res = await fetch('/api/instagram/ai-reply', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          commentText: comment.text,
-          username: comment.username,
-          postCaption,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to generate reply');
-      setReplyText(data.suggestion);
+      const suggestion = await callAiReply(comment.text, comment.username, postCaption);
+      setReplyText(suggestion);
       setShowReply(true);
       setShowDm(false);
     } catch (err) {
@@ -128,16 +128,57 @@ function CommentItem({ comment, mediaId, postCaption }) {
     }
   }
 
+  async function autoReply() {
+    if (autoReplying || autoReplied) return;
+    setAutoReplying(true);
+    setReplyError('');
+    try {
+      const suggestion = await callAiReply(comment.text, comment.username, postCaption);
+      const data = await callSendReply(comment.id, suggestion);
+      setReplies((prev) => [...prev, { id: data.id, text: suggestion, username: 'me', timestamp: new Date().toISOString() }]);
+      setAutoReplied(true);
+    } catch (err) {
+      setReplyError(err.message);
+    } finally {
+      setAutoReplying(false);
+    }
+  }
+
   return (
     <div className="py-4 border-b border-gray-100 last:border-0">
       <div className="flex gap-3">
         <Avatar username={comment.username} />
         <div className="flex-1 min-w-0">
-          <div className="flex items-baseline gap-2">
-            <span className="text-sm font-medium text-gray-900">@{comment.username}</span>
-            <span className="text-xs text-gray-400">{timeAgo(comment.timestamp)}</span>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-baseline gap-2">
+              <span className="text-sm font-medium text-gray-900">@{comment.username}</span>
+              <span className="text-xs text-gray-400">{timeAgo(comment.timestamp)}</span>
+            </div>
+            {/* Auto Reply button — only if no replies yet */}
+            {!hasReplies && (
+              autoReplied ? (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-green-300 text-green-600 text-[11px] font-semibold">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  Replied
+                </span>
+              ) : (
+                <button
+                  onClick={autoReply}
+                  disabled={autoReplying}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-lord-green text-lord-green text-[11px] font-semibold hover:bg-lord-green hover:text-white transition-colors disabled:opacity-50"
+                >
+                  {autoReplying ? (
+                    <><svg className="animate-spin" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>Replying…</>
+                  ) : (
+                    <><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Auto Reply</>
+                  )}
+                </button>
+              )
+            )}
           </div>
+
           <p className="text-sm text-gray-600 mt-0.5 leading-relaxed">{comment.text}</p>
+
           <div className="flex items-center gap-3 mt-2">
             <button
               onClick={() => { setShowReply((v) => !v); setShowDm(false); }}
@@ -151,19 +192,9 @@ function CommentItem({ comment, mediaId, postCaption }) {
               className="text-xs text-gray-400 hover:text-green-600 transition-colors flex items-center gap-1 disabled:opacity-50"
             >
               {generatingReply ? (
-                <span className="flex items-center gap-1">
-                  <svg className="animate-spin" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-                  </svg>
-                  AI…
-                </span>
+                <><svg className="animate-spin" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>AI…</>
               ) : (
-                <span className="flex items-center gap-1">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-                  </svg>
-                  AI Reply
-                </span>
+                <><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>AI Reply (preview)</>
               )}
             </button>
             {recipientId && (
@@ -172,8 +203,7 @@ function CommentItem({ comment, mediaId, postCaption }) {
                 className="text-xs text-gray-400 hover:text-blue-600 transition-colors flex items-center gap-1"
               >
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="22" y1="2" x2="11" y2="13" />
-                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                  <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
                 </svg>
                 {showDm ? 'Cancel' : 'DM'}
               </button>
@@ -182,12 +212,8 @@ function CommentItem({ comment, mediaId, postCaption }) {
         </div>
       </div>
 
-      {/* Replies */}
-      {replies.map((r) => (
-        <ReplyItem key={r.id} reply={r} />
-      ))}
+      {replies.map((r) => <ReplyItem key={r.id} reply={r} />)}
 
-      {/* Reply form */}
       {showReply && (
         <form onSubmit={submitReply} className="mt-3 ml-11 flex gap-2">
           <input
@@ -209,7 +235,6 @@ function CommentItem({ comment, mediaId, postCaption }) {
       )}
       {replyError && <p className="ml-11 mt-1.5 text-xs text-red-500">{replyError}</p>}
 
-      {/* DM form */}
       {showDm && (
         <form onSubmit={submitDm} className="mt-3 ml-11 space-y-2">
           <p className="text-xs text-gray-400">
@@ -240,18 +265,63 @@ function CommentItem({ comment, mediaId, postCaption }) {
 }
 
 export default function CommentThreads({ comments, mediaId, postCaption }) {
+  const [replyAllProgress, setReplyAllProgress] = useState(null); // null | { done, total }
+  const [replyAllDone, setReplyAllDone] = useState(false);
+
   if (!comments?.length) {
-    return (
-      <div className="text-center py-10 text-gray-400 text-sm">
-        No comments yet.
-      </div>
-    );
+    return <div className="text-center py-10 text-gray-400 text-sm">No comments yet.</div>;
+  }
+
+  const unanswered = comments.filter((c) => !(c.replies?.data?.length > 0));
+
+  async function replyToAll() {
+    if (!unanswered.length) return;
+    setReplyAllProgress({ done: 0, total: unanswered.length });
+    let done = 0;
+    for (const c of unanswered) {
+      try {
+        const suggestion = await callAiReply(c.text, c.username, postCaption);
+        await callSendReply(c.id, suggestion);
+        done++;
+        setReplyAllProgress({ done, total: unanswered.length });
+      } catch { /* continue */ }
+    }
+    setReplyAllDone(true);
+    setReplyAllProgress(null);
   }
 
   return (
     <div>
+      {/* Auto Reply All header */}
+      {unanswered.length > 0 && (
+        <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-100">
+          <p className="text-xs text-gray-400">
+            {unanswered.length} unanswered comment{unanswered.length !== 1 ? 's' : ''}
+          </p>
+          {replyAllDone ? (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-green-300 text-green-600 text-xs font-semibold">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              All replied
+            </span>
+          ) : replyAllProgress ? (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-lord-green text-lord-green text-xs font-semibold">
+              <svg className="animate-spin" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+              {replyAllProgress.done}/{replyAllProgress.total} replied…
+            </span>
+          ) : (
+            <button
+              onClick={replyToAll}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-lord-green text-white text-xs font-semibold hover:bg-lord-green-dark transition-colors shadow-sm"
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              Auto Reply All ({unanswered.length})
+            </button>
+          )}
+        </div>
+      )}
+
       {comments.map((comment) => (
-        <CommentItem key={comment.id} comment={comment} mediaId={mediaId} postCaption={postCaption} />
+        <CommentItem key={comment.id} comment={comment} mediaId={mediaId} postCaption={postCaption ?? ''} />
       ))}
     </div>
   );

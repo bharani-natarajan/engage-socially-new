@@ -381,10 +381,14 @@ export default function DashboardPage() {
                    const total = totalComments;
                    const unique = uniqueCommenters;
                    const repeat = Math.max(0, total - unique);
-                   const cx = 90, cy = 80, r = 75;
+                   // Geometry: cx=90, cy=90, r=62, strokeWidth=22
+                   // viewBox="0 0 180 104" — top of arc stroke: 90-62-11=17 ✓
+                   const cx = 90, cy = 90, r = 62, sw = 22;
+                   const startX = cx - r, startY = cy;   // (28, 90)
+                   const endX = cx + r, endY = cy;       // (152, 90)
 
                    function pt(pct) {
-                     const angle = (1 - pct) * Math.PI; // 180° → 0°
+                     const angle = (1 - pct) * Math.PI;
                      return [cx + r * Math.cos(angle), cy - r * Math.sin(angle)];
                    }
 
@@ -395,38 +399,40 @@ export default function DashboardPage() {
 
                    return (
                      <>
-                       <div className="mt-6 mb-2 flex justify-center relative">
-                         <svg width="180" height="90" viewBox="0 0 180 90">
+                       <div className="mt-4 flex justify-center relative" style={{ height: 110 }}>
+                         <svg width="180" height="104" viewBox="0 0 180 104" overflow="visible">
                            {/* Background arc */}
-                           <path d="M15,80 A75,75 0 0,1 165,80" fill="none" stroke="#f0f2f5" strokeWidth="26" strokeLinecap="butt"/>
-                           {commentsLoading || total === 0 ? null : (
-                             <>
-                               {/* Unique commenters — green */}
-                               {p1 > 0 && (
-                                 <path
-                                   d={`M15,80 A75,75 0 ${laf1},1 ${x1.toFixed(1)},${y1.toFixed(1)}`}
-                                   fill="none" stroke="#83d395" strokeWidth="26" strokeLinecap="butt"
-                                 />
-                               )}
-                               {/* Repeat commenters — teal */}
-                               {p1 < 1 && (
-                                 <path
-                                   d={`M${x1.toFixed(1)},${y1.toFixed(1)} A75,75 0 ${laf2},1 165,80`}
-                                   fill="none" stroke="#407088" strokeWidth="26" strokeLinecap="butt"
-                                 />
-                               )}
-                             </>
-                           )}
+                           <path
+                             d={`M${startX},${startY} A${r},${r} 0 0,1 ${endX},${endY}`}
+                             fill="none" stroke="#f0f2f5" strokeWidth={sw} strokeLinecap="butt"
+                           />
+                           {!commentsLoading && total > 0 && (<>
+                             {/* Unique — green */}
+                             {p1 > 0.01 && (
+                               <path
+                                 d={`M${startX},${startY} A${r},${r} 0 ${laf1},1 ${x1.toFixed(2)},${y1.toFixed(2)}`}
+                                 fill="none" stroke="#83d395" strokeWidth={sw} strokeLinecap="butt"
+                               />
+                             )}
+                             {/* Repeat — teal */}
+                             {p1 < 0.99 && (
+                               <path
+                                 d={`M${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${laf2},1 ${endX},${endY}`}
+                                 fill="none" stroke="#407088" strokeWidth={sw} strokeLinecap="butt"
+                               />
+                             )}
+                           </>)}
+                           {/* Center label in SVG so it's always perfectly aligned */}
+                           <text x={cx} y={cy - 4} textAnchor="middle" fontSize="28" fontWeight="700" fill="#1a1d1f">
+                             {commentsLoading ? '…' : total}
+                           </text>
+                           <text x={cx} y={cy + 14} textAnchor="middle" fontSize="10" fontWeight="600" fill="#6f767e">
+                             Total comments
+                           </text>
                          </svg>
-                         <div className="absolute flex flex-col items-center justify-end" style={{ bottom: '-6px', left: 0, right: 0 }}>
-                           <p className="text-[34px] font-bold text-lord-text-main leading-tight tracking-tight mb-0">
-                             {commentsLoading ? '…' : total.toLocaleString()}
-                           </p>
-                           <p className="text-[10px] font-semibold text-lord-text-muted pb-1">Total comments</p>
-                         </div>
                        </div>
 
-                       <div className="mt-6 space-y-3">
+                       <div className="mt-4 space-y-3">
                          <div className="flex items-center justify-between text-[12px] font-medium text-lord-text-main">
                            <div className="flex items-center gap-2"><div className="w-3.5 h-3.5 rounded-full bg-lord-green" /> Unique commenters</div>
                            <span className="font-bold">{commentsLoading ? '…' : unique.toLocaleString()}</span>
