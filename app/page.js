@@ -466,21 +466,27 @@ export default function DashboardPage() {
                <h3 className="text-xl font-bold text-lord-text-main">Top Commenters</h3>
 
                {/* Avatar row — top 3 */}
-               <div className="flex gap-2.5 mt-5">
+               <div className="flex gap-4 mt-5">
                  {commentsLoading ? (
                    [...Array(3)].map((_, i) => (
-                     <div key={i} className="w-[66px] h-[72px] rounded-[18px] bg-lord-bg animate-pulse" />
+                     <div key={i} className="flex flex-col items-center gap-1.5">
+                       <div className="w-11 h-11 rounded-full bg-lord-bg animate-pulse" />
+                       <div className="w-10 h-2 rounded bg-lord-bg animate-pulse" />
+                       <div className="w-6 h-2 rounded bg-lord-bg animate-pulse" />
+                     </div>
                    ))
                  ) : topCommenters.slice(0, 3).map((c, i) => {
-                   // Colors from the reference: peach, green-light, teal
-                   const bgColors = ['#f8e5db', '#e9f8ed', '#407088'];
-                   const textColors = ['#c4704a', '#6eb87e', '#ffffff'];
+                   const ringColors = ['#83d395', '#407088', '#f6a23c'];
                    return (
-                     <div key={c.username} style={{ backgroundColor: bgColors[i] }} className="w-[66px] h-[72px] rounded-[18px] flex flex-col items-center justify-center gap-1">
-                       <div className="w-9 h-9 rounded-full bg-white/80 flex items-center justify-center font-bold text-[15px] shadow-sm" style={{ color: bgColors[i] === '#407088' ? '#407088' : textColors[i] }}>
+                     <div key={c.username} className="flex flex-col items-center gap-1.5">
+                       <div
+                         className="w-11 h-11 rounded-full flex items-center justify-center font-bold text-[16px] text-white shadow-sm"
+                         style={{ backgroundColor: ringColors[i] }}
+                       >
                          {c.username.charAt(0).toUpperCase()}
                        </div>
-                       <span className="text-[9px] font-bold truncate max-w-[56px] px-1" style={{ color: textColors[i] }}>@{c.username}</span>
+                       <span className="text-[9px] font-semibold text-lord-text-muted truncate max-w-[52px] text-center">@{c.username}</span>
+                       <span className="text-[9px] font-bold text-lord-text-main">{c.count}</span>
                      </div>
                    );
                  })}
@@ -540,7 +546,7 @@ export default function DashboardPage() {
         </div>
 
         {/* ================= RIGHT COLUMN ================= */}
-        <div className="w-full">
+        <div className="w-full bg-lord-card rounded-[32px] p-6 shadow-sm">
            <div className="flex items-start justify-between mb-5">
              <div>
                <p className="text-[12px] text-lord-text-muted font-medium mb-1">Instagram</p>
