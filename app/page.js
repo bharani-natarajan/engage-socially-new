@@ -60,17 +60,15 @@ function CommentRow({ comment, onReplied }) {
   }
 
   return (
-    <div className="flex items-center justify-between py-4 px-1">
-      <div className="flex items-center gap-3.5 min-w-0">
-        <div className="w-12 h-12 rounded-full bg-gray-200 overflow-hidden flex-shrink-0 flex items-center justify-center font-bold text-[16px] text-gray-500">
-          {comment.username.charAt(0).toUpperCase()}
-        </div>
-        <div className="min-w-0">
-          <p className="text-[14px] font-bold text-lord-text-main leading-tight">@{comment.username}</p>
-          <p className="text-[12px] text-lord-text-muted truncate max-w-[150px] mt-0.5">{comment.text}</p>
-        </div>
+    <div className="flex items-center gap-3.5 py-4 px-1">
+      <div className="w-12 h-12 rounded-full bg-gray-200 overflow-hidden flex-shrink-0 flex items-center justify-center font-bold text-[16px] text-gray-500">
+        {comment.username.charAt(0).toUpperCase()}
       </div>
-      <div className="flex-shrink-0 ml-2">
+      <div className="flex-1 min-w-0">
+        <p className="text-[14px] font-bold text-lord-text-main leading-tight truncate">@{comment.username}</p>
+        <p className="text-[12px] text-lord-text-muted truncate mt-0.5">{comment.text}</p>
+      </div>
+      <div className="flex-shrink-0">
         {status === 'done' ? (
           <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-lord-green text-lord-green text-[12px] font-semibold">
             <span className="w-1.5 h-1.5 rounded-full bg-lord-green" /> Done
