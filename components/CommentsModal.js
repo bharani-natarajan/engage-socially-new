@@ -35,6 +35,9 @@ export default function CommentsModal({ post, onClose }) {
                     commentText: comment.text,
                     username: comment.username,
                     postCaption: post.caption,
+                    brandContext: localStorage.getItem('setting_ai_context') ?? '',
+                    tone: localStorage.getItem('setting_ai_tone') ?? 'friendly',
+                    avoid: localStorage.getItem('setting_ai_avoid') ?? '',
                   }),
                 });
                 const aiData = await aiRes.json();

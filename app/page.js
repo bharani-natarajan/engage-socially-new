@@ -42,7 +42,14 @@ function CommentRow({ comment, onReplied }) {
       const aiRes = await fetch('/api/instagram/ai-reply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ commentText: comment.text, username: comment.username, postCaption: comment.postCaption }),
+        body: JSON.stringify({
+            commentText: comment.text,
+            username: comment.username,
+            postCaption: comment.postCaption,
+            brandContext: localStorage.getItem('setting_ai_context') ?? '',
+            tone: localStorage.getItem('setting_ai_tone') ?? 'friendly',
+            avoid: localStorage.getItem('setting_ai_avoid') ?? '',
+          }),
       });
       const aiData = await aiRes.json();
       if (!aiRes.ok) throw new Error(aiData.error);
@@ -144,7 +151,14 @@ export default function DashboardPage() {
         const aiRes = await fetch('/api/instagram/ai-reply', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ commentText: c.text, username: c.username, postCaption: c.postCaption }),
+          body: JSON.stringify({
+            commentText: c.text,
+            username: c.username,
+            postCaption: c.postCaption,
+            brandContext: localStorage.getItem('setting_ai_context') ?? '',
+            tone: localStorage.getItem('setting_ai_tone') ?? 'friendly',
+            avoid: localStorage.getItem('setting_ai_avoid') ?? '',
+          }),
         });
         const aiData = await aiRes.json();
         if (!aiRes.ok) continue;

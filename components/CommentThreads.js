@@ -35,10 +35,13 @@ function ReplyItem({ reply }) {
 }
 
 async function callAiReply(commentText, username, postCaption) {
+  const brandContext = typeof localStorage !== 'undefined' ? (localStorage.getItem('setting_ai_context') ?? '') : '';
+  const tone = typeof localStorage !== 'undefined' ? (localStorage.getItem('setting_ai_tone') ?? 'friendly') : 'friendly';
+  const avoid = typeof localStorage !== 'undefined' ? (localStorage.getItem('setting_ai_avoid') ?? '') : '';
   const res = await fetch('/api/instagram/ai-reply', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ commentText, username, postCaption }),
+    body: JSON.stringify({ commentText, username, postCaption, brandContext, tone, avoid }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'AI generation failed');
