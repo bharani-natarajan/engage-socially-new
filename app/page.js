@@ -266,8 +266,6 @@ export default function DashboardPage() {
                             </g>
                           );
                         })}
-                        {/* x-axis line */}
-                        <line x1="0" y1={chartH} x2={totalW} y2={chartH} stroke="#e5e7eb" strokeWidth="1" />
                       </svg>
                       <div className="flex items-center justify-between mt-1 text-[9px] text-gray-400 font-medium">
                         <span>Post 1 (latest)</span>
