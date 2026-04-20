@@ -11,7 +11,7 @@ export default function PostCard({ post }) {
 
   return (
     <>
-      <div className="group flex flex-col rounded-2xl overflow-hidden bg-white border border-gray-100 hover:border-green-200 hover:shadow-lg hover:shadow-green-500/10 transition-all shadow-sm">
+      <div className="group flex flex-col rounded-2xl overflow-hidden bg-lord-card border border-lord-border hover:border-green-200 hover:shadow-lg hover:shadow-green-500/10 transition-all shadow-sm">
         <Link href={`/posts/${post.id}`} className="relative aspect-square overflow-hidden bg-gray-50 block">
           {thumb ? (
             // eslint-disable-next-line @next/next/no-img-element

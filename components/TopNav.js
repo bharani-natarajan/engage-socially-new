@@ -16,7 +16,7 @@ export default function TopNav() {
   const pathname = usePathname();
 
   return (
-    <header className="h-[80px] bg-white flex items-center justify-between px-8 shrink-0 z-20 shadow-[0_4px_24px_rgba(0,0,0,0.02)]">
+    <header className="h-[80px] bg-lord-card flex items-center justify-between px-8 shrink-0 z-20 shadow-[0_4px_24px_rgba(0,0,0,0.02)]">
       {/* Left: Logo */}
       <div className="flex items-center gap-3">
         <Link

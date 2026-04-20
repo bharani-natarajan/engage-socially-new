@@ -105,7 +105,7 @@ export default function CommentsModal({ post, onClose }) {
       onClick={onBackdropClick}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
     >
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex overflow-hidden">
+      <div className="bg-lord-card rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex overflow-hidden">
         {/* Left: post image */}
         <div className="hidden sm:block w-72 flex-shrink-0 bg-gray-100">
           {thumb ? (
