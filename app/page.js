@@ -60,30 +60,30 @@ function CommentRow({ comment, onReplied }) {
   }
 
   return (
-    <div className="flex items-center justify-between py-3.5 border-b border-lord-border/60 last:border-0 hover:bg-lord-border/20 px-2 transition-colors rounded-xl">
-      <div className="flex items-center gap-3 min-w-0">
-        <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden flex-shrink-0 flex items-center justify-center font-bold text-gray-400">
+    <div className="flex items-center justify-between py-4 px-1">
+      <div className="flex items-center gap-3.5 min-w-0">
+        <div className="w-12 h-12 rounded-full bg-gray-200 overflow-hidden flex-shrink-0 flex items-center justify-center font-bold text-[16px] text-gray-500">
           {comment.username.charAt(0).toUpperCase()}
         </div>
         <div className="min-w-0">
-          <p className="text-[13px] font-semibold text-lord-text-main leading-tight">@{comment.username}</p>
-          <p className="text-[11px] text-lord-text-muted truncate max-w-[160px] mt-0.5">{comment.text}</p>
+          <p className="text-[14px] font-bold text-lord-text-main leading-tight">@{comment.username}</p>
+          <p className="text-[12px] text-lord-text-muted truncate max-w-[150px] mt-0.5">{comment.text}</p>
         </div>
       </div>
       <div className="flex-shrink-0 ml-2">
         {status === 'done' ? (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-lord-green text-lord-green text-[11px] font-bold">
+          <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-lord-green text-lord-green text-[12px] font-semibold">
             <span className="w-1.5 h-1.5 rounded-full bg-lord-green" /> Done
           </span>
         ) : status === 'error' ? (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-lord-red text-lord-red text-[11px] font-bold">
+          <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-lord-red text-lord-red text-[12px] font-semibold">
             <span className="w-1.5 h-1.5 rounded-full bg-lord-red" /> Failed
           </span>
         ) : (
           <button
             onClick={autoReply}
             disabled={status === 'replying'}
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-lord-green text-lord-green text-[11px] font-bold hover:bg-lord-green hover:text-white transition-colors disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-lord-green text-lord-green text-[12px] font-semibold hover:bg-lord-green hover:text-white transition-colors disabled:opacity-50"
           >
             {status === 'replying' ? (
               <><svg className="animate-spin" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>Replying…</>
@@ -171,17 +171,14 @@ export default function DashboardPage() {
         </div>
         
         <div className="flex items-center gap-3 hidden sm:flex">
-          <button className="px-4 py-2.5 rounded-full bg-lord-card text-lord-text-main text-[13px] font-bold border border-lord-border flex items-center gap-2 hover:bg-gray-50 transition-colors">
-            <span className="text-gray-400 text-lg leading-none mb-0.5">+</span> Add widget
-          </button>
-          <button className="px-4 py-2.5 rounded-full bg-lord-card text-lord-text-main text-[13px] font-bold border border-lord-border flex items-center gap-2 hover:bg-gray-50 transition-colors">
+          <div className="px-4 py-2.5 rounded-full bg-lord-card text-lord-text-main text-[13px] font-bold border border-lord-border flex items-center gap-2">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            18 - 22 November
-          </button>
-          <button className="px-5 py-2.5 rounded-full bg-lord-green text-lord-card text-[13px] font-bold shadow-sm hover:opacity-90 transition-opacity flex items-center gap-1.5">
-             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16h16V8l-6-6z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-             Add report
-          </button>
+            {new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}
+          </div>
+          <a href="/create" className="px-5 py-2.5 rounded-full bg-lord-green text-lord-card text-[13px] font-bold shadow-sm hover:opacity-90 transition-opacity flex items-center gap-1.5">
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16h16V8l-6-6z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+            Create Post
+          </a>
         </div>
       </div>
 
@@ -547,16 +544,16 @@ export default function DashboardPage() {
 
         {/* ================= RIGHT COLUMN ================= */}
         <div className="w-full bg-lord-card rounded-[32px] p-6 shadow-sm">
-           <div className="flex items-start justify-between mb-5">
+           <div className="flex items-start justify-between mb-4">
              <div>
-               <p className="text-[12px] text-lord-text-muted font-medium mb-1">Instagram</p>
-               <h2 className="text-[24px] font-bold text-lord-text-main">Unanswered comments</h2>
+               <p className="text-[12px] text-lord-text-muted font-medium mb-1">Payout monthly</p>
+               <h2 className="text-[22px] font-bold text-lord-text-main leading-snug">Unanswered<br/>comments</h2>
              </div>
              {topComments.length > 0 && (
                <button
                  onClick={replyToAll}
                  disabled={replyingAll}
-                 className="mt-1 flex items-center gap-1.5 px-4 py-2 rounded-full bg-lord-green text-white text-[12px] font-bold shadow-sm hover:bg-lord-green-dark disabled:opacity-50 transition-colors"
+                 className="mt-1 flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-lord-green text-white text-[13px] font-bold shadow-sm hover:bg-lord-green-dark disabled:opacity-50 transition-colors"
                >
                  {replyingAll ? (
                    <><svg className="animate-spin" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>{replyAllDone}/{topComments.length + replyAllDone}…</>
@@ -567,15 +564,16 @@ export default function DashboardPage() {
              )}
            </div>
 
-           <div className="flex flex-col gap-1">
+           <div className="flex flex-col divide-y divide-lord-border/50">
              {commentsLoading ? (
                [...Array(5)].map((_, i) => (
-                 <div key={i} className="flex items-center gap-3 py-3.5 px-2">
-                   <div className="w-10 h-10 rounded-full bg-gray-200 animate-pulse flex-shrink-0" />
-                   <div className="flex-1 space-y-1.5">
-                     <div className="h-3 bg-gray-200 rounded animate-pulse w-1/3" />
-                     <div className="h-3 bg-gray-200 rounded animate-pulse w-2/3" />
+                 <div key={i} className="flex items-center gap-3.5 py-4 px-1">
+                   <div className="w-12 h-12 rounded-full bg-gray-200 animate-pulse flex-shrink-0" />
+                   <div className="flex-1 space-y-2">
+                     <div className="h-3.5 bg-gray-200 rounded animate-pulse w-2/5" />
+                     <div className="h-3 bg-gray-200 rounded animate-pulse w-3/5" />
                    </div>
+                   <div className="w-24 h-8 rounded-full bg-gray-200 animate-pulse" />
                  </div>
                ))
              ) : topComments.length === 0 ? (
