@@ -379,58 +379,65 @@ export default function DashboardPage() {
                    const total = totalComments;
                    const unique = uniqueCommenters;
                    const repeat = Math.max(0, total - unique);
-                   // Geometry: cx=90, cy=90, r=62, strokeWidth=22
-                   // viewBox="0 0 180 104" — top of arc stroke: 90-62-11=17 ✓
-                   const cx = 90, cy = 90, r = 62, sw = 22;
-                   const startX = cx - r, startY = cy;   // (28, 90)
-                   const endX = cx + r, endY = cy;       // (152, 90)
 
-                   function pt(pct) {
-                     const angle = (1 - pct) * Math.PI;
-                     return [cx + r * Math.cos(angle), cy - r * Math.sin(angle)];
-                   }
+                   // Use stroke-dasharray on a single full arc to draw segments cleanly.
+                   // Full semicircle circumference = π * r
+                   const r = 58;
+                   const cx = 90, cy = 82;
+                   const circumference = Math.PI * r; // ~182px
 
-                   const p1 = total > 0 ? unique / total : 0;
-                   const [x1, y1] = pt(p1);
-                   const laf1 = p1 > 0.5 ? 1 : 0;
-                   const laf2 = (1 - p1) > 0.5 ? 1 : 0;
+                   const p1 = total > 0 ? unique / total : 0;  // green (unique)
+                   const p2 = total > 0 ? repeat / total : 0;  // teal (repeat)
+
+                   const gap = 4; // px gap between segments
+                   const seg1 = Math.max(0, p1 * circumference - gap);
+                   const seg2 = Math.max(0, p2 * circumference - gap);
+
+                   // Each arc uses dasharray: [segLen, rest] with dashoffset to position it
+                   // Arc starts at the left (180°). SVG path drawn left→right.
+                   const offset1 = 0;                          // green starts at 0
+                   const offset2 = -(seg1 + gap);              // teal starts after green + gap
 
                    return (
                      <>
-                       <div className="mt-4 flex justify-center relative" style={{ height: 110 }}>
-                         <svg width="180" height="104" viewBox="0 0 180 104" overflow="visible">
-                           {/* Background arc */}
+                       <div className="mt-4 flex justify-center" style={{ height: 108 }}>
+                         <svg width="180" height="108" viewBox="0 0 180 108">
+                           {/* Full background arc */}
                            <path
-                             d={`M${startX},${startY} A${r},${r} 0 0,1 ${endX},${endY}`}
-                             fill="none" stroke="#f0f2f5" strokeWidth={sw} strokeLinecap="butt"
+                             d={`M${cx - r},${cy} A${r},${r} 0 0,1 ${cx + r},${cy}`}
+                             fill="none" stroke="#eef0f3" strokeWidth="20" strokeLinecap="round"
                            />
                            {!commentsLoading && total > 0 && (<>
                              {/* Unique — green */}
-                             {p1 > 0.01 && (
+                             {seg1 > 2 && (
                                <path
-                                 d={`M${startX},${startY} A${r},${r} 0 ${laf1},1 ${x1.toFixed(2)},${y1.toFixed(2)}`}
-                                 fill="none" stroke="#83d395" strokeWidth={sw} strokeLinecap="butt"
+                                 d={`M${cx - r},${cy} A${r},${r} 0 0,1 ${cx + r},${cy}`}
+                                 fill="none" stroke="#83d395" strokeWidth="20" strokeLinecap="round"
+                                 strokeDasharray={`${seg1} ${circumference}`}
+                                 strokeDashoffset={offset1}
                                />
                              )}
                              {/* Repeat — teal */}
-                             {p1 < 0.99 && (
+                             {seg2 > 2 && (
                                <path
-                                 d={`M${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${laf2},1 ${endX},${endY}`}
-                                 fill="none" stroke="#407088" strokeWidth={sw} strokeLinecap="butt"
+                                 d={`M${cx - r},${cy} A${r},${r} 0 0,1 ${cx + r},${cy}`}
+                                 fill="none" stroke="#407088" strokeWidth="20" strokeLinecap="round"
+                                 strokeDasharray={`${seg2} ${circumference}`}
+                                 strokeDashoffset={offset2}
                                />
                              )}
                            </>)}
-                           {/* Center label in SVG so it's always perfectly aligned */}
-                           <text x={cx} y={cy - 4} textAnchor="middle" fontSize="28" fontWeight="700" fill="#1a1d1f">
+                           {/* Center label */}
+                           <text x={cx} y={cy - 6} textAnchor="middle" fontSize="30" fontWeight="700" fill="#1a1d1f" fontFamily="sans-serif">
                              {commentsLoading ? '…' : total}
                            </text>
-                           <text x={cx} y={cy + 14} textAnchor="middle" fontSize="10" fontWeight="600" fill="#6f767e">
+                           <text x={cx} y={cy + 12} textAnchor="middle" fontSize="10" fontWeight="500" fill="#6f767e" fontFamily="sans-serif">
                              Total comments
                            </text>
                          </svg>
                        </div>
 
-                       <div className="mt-4 space-y-3">
+                       <div className="mt-3 space-y-3">
                          <div className="flex items-center justify-between text-[12px] font-medium text-lord-text-main">
                            <div className="flex items-center gap-2"><div className="w-3.5 h-3.5 rounded-full bg-lord-green" /> Unique commenters</div>
                            <span className="font-bold">{commentsLoading ? '…' : unique.toLocaleString()}</span>
