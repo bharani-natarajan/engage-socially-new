@@ -26,12 +26,19 @@ export async function GET() {
 
     const unanswered = [];
     const uniqueIds = new Set();
+    const commenterCounts = {}; // username → { count, id }
 
     for (const result of commentResults) {
       if (result.status !== 'fulfilled') continue;
       const { post, comments } = result.value;
       for (const comment of comments) {
         if (comment.from?.id) uniqueIds.add(comment.from.id);
+        // Tally commenter frequency
+        const uname = comment.username;
+        if (uname) {
+          if (!commenterCounts[uname]) commenterCounts[uname] = { username: uname, count: 0 };
+          commenterCounts[uname].count++;
+        }
         const hasReply = comment.replies?.data?.length > 0;
         if (!hasReply) {
           unanswered.push({
@@ -46,6 +53,11 @@ export async function GET() {
         }
       }
     }
+
+    // Top 5 most active commenters
+    const topCommenters = Object.values(commenterCounts)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
 
     // Total comments checked across the recent posts
     const checkedTotal = commentResults
@@ -83,6 +95,7 @@ export async function GET() {
       repliedCount,
       last10,
       avgCommentsPerPost,
+      topCommenters,
       latestPostPreview,
     });
   } catch (err) {

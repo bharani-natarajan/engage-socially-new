@@ -108,6 +108,7 @@ export default function DashboardPage() {
   const [last10, setLast10] = useState([]);
   const [avgCommentsPerPost, setAvgCommentsPerPost] = useState(0);
   const [uniqueCommenters, setUniqueCommenters] = useState(0);
+  const [topCommenters, setTopCommenters] = useState([]);
   const [commentsLoading, setCommentsLoading] = useState(true);
   const [replyingAll, setReplyingAll] = useState(false);
   const [replyAllDone, setReplyAllDone] = useState(0);
@@ -126,6 +127,7 @@ export default function DashboardPage() {
         setLast10(d.last10 ?? []);
         setAvgCommentsPerPost(d.avgCommentsPerPost ?? 0);
         setUniqueCommenters(d.uniqueCommenters ?? 0);
+        setTopCommenters(d.topCommenters ?? []);
       })
       .catch(() => {})
       .finally(() => setCommentsLoading(false));
@@ -458,40 +460,80 @@ export default function DashboardPage() {
                  })()}
              </div>
              
-             {/* Small Bottom Right Widget: Talent recruitment */}
+             {/* Top Commenters widget */}
              <div className="bg-white rounded-[32px] shadow-sm p-6 relative flex flex-col">
-                 <button className="absolute top-6 right-6 w-8 h-8 flex items-center justify-center rounded-full border border-lord-border text-lord-text-main hover:bg-gray-50"><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
-                 <p className="text-[11px] text-lord-text-muted font-medium mb-1">Hiring statistics</p>
-                 <h3 className="text-xl font-bold text-lord-text-main">Talent recruitment</h3>
-                 
-                 <div className="flex gap-2.5 mt-5">
-                    <div className="w-[66px] h-[72px] rounded-[18px] bg-[#f8e5db] overflow-hidden relative">
-                       <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120')] bg-cover bg-center" />
-                    </div>
-                    <div className="w-[66px] h-[72px] rounded-[18px] bg-[#ebf4e7] overflow-hidden relative">
-                       <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1531123897727-8f129e120ace?w=120')] bg-cover bg-center" />
-                    </div>
-                    <div className="w-[66px] h-[72px] rounded-[18px] bg-lord-teal text-white flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-lord-teal-dark transition-colors">
-                       <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-                       <span className="text-[9px] font-medium mt-0.5">Join call</span>
-                    </div>
-                 </div>
+               <p className="text-[11px] text-lord-text-muted font-medium mb-1">Instagram</p>
+               <h3 className="text-xl font-bold text-lord-text-main">Top Commenters</h3>
 
-                 <div className="mt-auto pt-6">
-                    <div className="flex items-center justify-between text-[11px] font-bold text-lord-text-main mb-3">
-                       <span>120 Talent</span>
-                       <span>80 Talent</span>
-                    </div>
-                    <div className="flex gap-1.5 h-12 items-end">
-                       {[...Array(18)].map((_, i) => (
-                           <div key={i} className={`flex-1 rounded-full ${i < 13 ? 'bg-lord-green' : 'bg-gray-200'}`} style={{ height: `${30 + Math.random()*70}%`}} />
-                       ))}
-                    </div>
-                    <div className="flex gap-5 items-center justify-center mt-4">
-                       <div className="flex items-center gap-1.5 text-[10px] font-bold text-lord-text-muted"><div className="w-2 h-2 rounded-full bg-lord-green" /> Matched</div>
-                       <div className="flex items-center gap-1.5 text-[10px] font-bold text-lord-text-muted"><div className="w-2 h-2 rounded-full bg-gray-200" /> Not match</div>
-                    </div>
+               {/* Avatar row — top 3 */}
+               <div className="flex gap-2.5 mt-5">
+                 {commentsLoading ? (
+                   [...Array(3)].map((_, i) => (
+                     <div key={i} className="w-[66px] h-[72px] rounded-[18px] bg-gray-100 animate-pulse" />
+                   ))
+                 ) : topCommenters.slice(0, 3).map((c, i) => {
+                   const colors = ['bg-lord-green-light', 'bg-blue-50', 'bg-amber-50'];
+                   const textColors = ['text-lord-green-dark', 'text-blue-500', 'text-amber-500'];
+                   return (
+                     <div key={c.username} className={`w-[66px] h-[72px] rounded-[18px] ${colors[i]} flex flex-col items-center justify-center gap-1`}>
+                       <div className={`w-9 h-9 rounded-full bg-white flex items-center justify-center font-bold text-[15px] ${textColors[i]} shadow-sm`}>
+                         {c.username.charAt(0).toUpperCase()}
+                       </div>
+                       <span className={`text-[9px] font-bold ${textColors[i]} truncate max-w-[56px] px-1`}>@{c.username}</span>
+                     </div>
+                   );
+                 })}
+                 {!commentsLoading && topCommenters.length === 0 && (
+                   <p className="text-[11px] text-lord-text-muted mt-2">No comment data yet.</p>
+                 )}
+               </div>
+
+               {/* Stats row */}
+               {!commentsLoading && topCommenters.length > 0 && (
+                 <div className="flex items-center justify-between text-[11px] font-bold text-lord-text-main mt-5 mb-2">
+                   <span className="text-lord-green-dark">#{1} {topCommenters[0]?.username}</span>
+                   <span className="text-lord-text-muted">{topCommenters[0]?.count} comments</span>
                  </div>
+               )}
+
+               {/* Bar chart */}
+               <div className="mt-auto pt-2">
+                 {commentsLoading ? (
+                   <div className="flex gap-1.5 h-12 items-end">
+                     {[...Array(5)].map((_, i) => <div key={i} className="flex-1 rounded-full bg-gray-100 animate-pulse" style={{ height: '60%' }} />)}
+                   </div>
+                 ) : topCommenters.length > 0 ? (() => {
+                   const maxCount = topCommenters[0]?.count ?? 1;
+                   return (
+                     <>
+                       <div className="flex gap-2 h-16 items-end mb-2">
+                         {topCommenters.map((c, i) => {
+                           const h = Math.max(15, (c.count / maxCount) * 100);
+                           const isTop = i === 0;
+                           return (
+                             <div key={c.username} className="flex-1 flex flex-col items-center gap-1">
+                               <span className="text-[9px] font-bold text-lord-text-muted">{c.count}</span>
+                               <div
+                                 className={`w-full rounded-full ${isTop ? 'bg-lord-teal' : 'bg-lord-green-light'}`}
+                                 style={{ height: `${h}%` }}
+                               />
+                             </div>
+                           );
+                         })}
+                       </div>
+                       <div className="flex gap-2 items-center justify-center mt-1">
+                         {topCommenters.map((c, i) => (
+                           <span key={c.username} className="text-[9px] text-lord-text-muted truncate max-w-[48px]">@{c.username}</span>
+                         ))}
+                       </div>
+                       <div className="flex gap-5 items-center justify-center mt-3">
+                         <div className="flex items-center gap-1.5 text-[10px] font-bold text-lord-text-muted"><div className="w-2 h-2 rounded-full bg-lord-teal" /> Most active</div>
+                         <div className="flex items-center gap-1.5 text-[10px] font-bold text-lord-text-muted"><div className="w-2 h-2 rounded-full bg-lord-green-light" /> Others</div>
+                       </div>
+                     </>
+                   );
+                 })() : null}
+               </div>
              </div>
           </div>
         </div>
