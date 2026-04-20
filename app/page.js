@@ -469,17 +469,18 @@ export default function DashboardPage() {
                <div className="flex gap-2.5 mt-5">
                  {commentsLoading ? (
                    [...Array(3)].map((_, i) => (
-                     <div key={i} className="w-[66px] h-[72px] rounded-[18px] bg-gray-100 animate-pulse" />
+                     <div key={i} className="w-[66px] h-[72px] rounded-[18px] bg-lord-bg animate-pulse" />
                    ))
                  ) : topCommenters.slice(0, 3).map((c, i) => {
-                   const colors = ['bg-lord-green-light', 'bg-blue-50', 'bg-amber-50'];
-                   const textColors = ['text-lord-green-dark', 'text-blue-500', 'text-amber-500'];
+                   // Colors from the reference: peach, green-light, teal
+                   const bgColors = ['#f8e5db', '#e9f8ed', '#407088'];
+                   const textColors = ['#c4704a', '#6eb87e', '#ffffff'];
                    return (
-                     <div key={c.username} className={`w-[66px] h-[72px] rounded-[18px] ${colors[i]} flex flex-col items-center justify-center gap-1`}>
-                       <div className={`w-9 h-9 rounded-full bg-white flex items-center justify-center font-bold text-[15px] ${textColors[i]} shadow-sm`}>
+                     <div key={c.username} style={{ backgroundColor: bgColors[i] }} className="w-[66px] h-[72px] rounded-[18px] flex flex-col items-center justify-center gap-1">
+                       <div className="w-9 h-9 rounded-full bg-white/80 flex items-center justify-center font-bold text-[15px] shadow-sm" style={{ color: bgColors[i] === '#407088' ? '#407088' : textColors[i] }}>
                          {c.username.charAt(0).toUpperCase()}
                        </div>
-                       <span className={`text-[9px] font-bold ${textColors[i]} truncate max-w-[56px] px-1`}>@{c.username}</span>
+                       <span className="text-[9px] font-bold truncate max-w-[56px] px-1" style={{ color: textColors[i] }}>@{c.username}</span>
                      </div>
                    );
                  })}
@@ -491,8 +492,8 @@ export default function DashboardPage() {
                {/* Stats row */}
                {!commentsLoading && topCommenters.length > 0 && (
                  <div className="flex items-center justify-between text-[11px] font-bold text-lord-text-main mt-5 mb-2">
-                   <span className="text-lord-green-dark">#{1} {topCommenters[0]?.username}</span>
-                   <span className="text-lord-text-muted">{topCommenters[0]?.count} comments</span>
+                   <span className="text-lord-text-main">{topCommenters[0]?.count} comments</span>
+                   <span className="text-lord-text-muted">{topCommenters.length} commenters</span>
                  </div>
                )}
 
@@ -500,7 +501,7 @@ export default function DashboardPage() {
                <div className="mt-auto pt-2">
                  {commentsLoading ? (
                    <div className="flex gap-1.5 h-12 items-end">
-                     {[...Array(5)].map((_, i) => <div key={i} className="flex-1 rounded-full bg-gray-100 animate-pulse" style={{ height: '60%' }} />)}
+                     {[...Array(5)].map((_, i) => <div key={i} className="flex-1 rounded-full bg-lord-bg animate-pulse" style={{ height: '60%' }} />)}
                    </div>
                  ) : topCommenters.length > 0 ? (() => {
                    const maxCount = topCommenters[0]?.count ?? 1;
@@ -514,7 +515,7 @@ export default function DashboardPage() {
                              <div key={c.username} className="flex-1 flex flex-col items-center gap-1">
                                <span className="text-[9px] font-bold text-lord-text-muted">{c.count}</span>
                                <div
-                                 className={`w-full rounded-full ${isTop ? 'bg-lord-teal' : 'bg-lord-green-light'}`}
+                                 className={`w-full rounded-full ${isTop ? 'bg-lord-green' : 'bg-lord-bg'}`}
                                  style={{ height: `${h}%` }}
                                />
                              </div>
@@ -522,13 +523,13 @@ export default function DashboardPage() {
                          })}
                        </div>
                        <div className="flex gap-2 items-center justify-center mt-1">
-                         {topCommenters.map((c, i) => (
+                         {topCommenters.map((c) => (
                            <span key={c.username} className="text-[9px] text-lord-text-muted truncate max-w-[48px]">@{c.username}</span>
                          ))}
                        </div>
                        <div className="flex gap-5 items-center justify-center mt-3">
-                         <div className="flex items-center gap-1.5 text-[10px] font-bold text-lord-text-muted"><div className="w-2 h-2 rounded-full bg-lord-teal" /> Most active</div>
-                         <div className="flex items-center gap-1.5 text-[10px] font-bold text-lord-text-muted"><div className="w-2 h-2 rounded-full bg-lord-green-light" /> Others</div>
+                         <div className="flex items-center gap-1.5 text-[10px] font-bold text-lord-text-muted"><div className="w-2 h-2 rounded-full bg-lord-green" /> Most active</div>
+                         <div className="flex items-center gap-1.5 text-[10px] font-bold text-lord-text-muted"><div className="w-2 h-2 rounded-full bg-lord-bg" style={{ border: '1px solid #efefef' }} /> Others</div>
                        </div>
                      </>
                    );

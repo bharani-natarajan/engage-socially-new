@@ -7,8 +7,8 @@ const config = {
   theme: {
     extend: {
       colors: {
-        'lord-bg': '#f5f6f8',
-        'lord-card': '#ffffff',
+        'lord-bg': '#ffffff',
+        'lord-card': '#f4f5f7',
         'lord-green': '#83d395',
         'lord-green-light': '#e9f8ed',
         'lord-green-dark': '#6eb87e',
