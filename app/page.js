@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { usePlatform } from '@/components/PlatformContext';
+import PlatformTabs from '@/components/PlatformTabs';
 
 // -------------------------------------------------------------
 // Component: Status Pill (Waiting, Done, Failed)
@@ -104,7 +104,7 @@ function CommentRow({ comment, onReplied, platform = 'instagram' }) {
 }
 
 export default function DashboardPage() {
-  const { platform } = usePlatform();
+  const [platform, setPlatform] = useState('instagram');
   const [latestPost, setLatestPost] = useState(null);
   const [topComments, setTopComments] = useState([]);
   const [totalLikes, setTotalLikes] = useState(0);
@@ -180,6 +180,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6 pb-12">
+      <PlatformTabs platform={platform} onChange={setPlatform} />
       {/* Top Action Row */}
       <div className="flex items-center justify-between mb-8 pb-2">
         <div>

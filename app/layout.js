@@ -2,7 +2,6 @@ import './globals.css';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import TopNav from '@/components/TopNav';
-import { PlatformProvider } from '@/components/PlatformContext';
 
 export const metadata = {
   title: 'Engage Socially',
@@ -22,16 +21,14 @@ export default async function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className="bg-lord-bg font-sans antialiased text-lord-text-main">
-        <PlatformProvider>
-          <div className="flex flex-col h-screen overflow-hidden">
-            <TopNav />
-            <main className="flex-1 overflow-y-auto overflow-x-hidden p-8">
-              <div className="max-w-[1400px] mx-auto w-full">
-                {children}
-              </div>
-            </main>
-          </div>
-        </PlatformProvider>
+        <div className="flex flex-col h-screen overflow-hidden">
+          <TopNav />
+          <main className="flex-1 overflow-y-auto overflow-x-hidden p-8">
+            <div className="max-w-[1400px] mx-auto w-full">
+              {children}
+            </div>
+          </main>
+        </div>
       </body>
     </html>
   );

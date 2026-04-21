@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { usePlatform } from '@/components/PlatformContext';
+import PlatformTabs from '@/components/PlatformTabs';
 
 function timeAgo(ts) {
   const diff = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
@@ -22,7 +22,7 @@ function Avatar({ name, size = 'md' }) {
 }
 
 export default function MessagesPage() {
-  const { platform } = usePlatform();
+  const [platform, setPlatform] = useState('instagram');
   const [conversations, setConversations] = useState([]);
   const [loadingConvos, setLoadingConvos] = useState(true);
   const [convosError, setConvosError] = useState('');
@@ -132,7 +132,9 @@ export default function MessagesPage() {
   const other = selectedConvo ? getOtherParticipant(selectedConvo) : null;
 
   return (
-    <div className="flex h-full">
+    <div className="flex flex-col h-full">
+      <PlatformTabs platform={platform} onChange={setPlatform} />
+    <div className="flex flex-1 min-h-0">
       {/* Conversation list */}
       <div className="w-72 flex-shrink-0 border-r border-gray-100 flex flex-col bg-white">
         <div className="px-5 py-5 border-b border-gray-100">
@@ -266,6 +268,7 @@ export default function MessagesPage() {
           </>
         )}
       </div>
+    </div>
     </div>
   );
 }

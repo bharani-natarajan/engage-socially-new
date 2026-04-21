@@ -3,10 +3,10 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import PostCard from '@/components/PostCard';
-import { usePlatform } from '@/components/PlatformContext';
+import PlatformTabs from '@/components/PlatformTabs';
 
 export default function PostsPage() {
-  const { platform } = usePlatform();
+  const [platform, setPlatform] = useState('instagram');
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -29,6 +29,7 @@ export default function PostsPage() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
+      <PlatformTabs platform={platform} onChange={setPlatform} />
       <div className="flex items-center justify-between mb-6">
         <div>
           <p className="text-sm text-gray-500">
