@@ -75,18 +75,15 @@ export async function GET() {
     // Unique commenters count
     const uniqueCommenters = Object.keys(commenterMap).length;
 
-    // Latest post preview (with media if available)
+    // Latest post preview — same shape as Instagram dashboard for UI compatibility
     const latestWithMedia = posts.find((p) => p.media_url) ?? posts[0];
     const latestPostPreview = latestWithMedia
       ? {
+          image: latestWithMedia.media_url ?? null,
+          likes: latestWithMedia.like_count ?? 0,
+          comments: latestWithMedia.comments_count ?? 0,
+          permalink: latestWithMedia.permalink_url ?? null,
           id: latestWithMedia.id,
-          media_url: latestWithMedia.media_url,
-          like_count: latestWithMedia.like_count,
-          comments_count: latestWithMedia.comments_count,
-          caption: latestWithMedia.caption,
-          timestamp: latestWithMedia.timestamp,
-          permalink_url: latestWithMedia.permalink_url,
-          _platform: 'facebook',
         }
       : null;
 
