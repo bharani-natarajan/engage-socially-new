@@ -12,9 +12,10 @@ export const metadata = {
 export default async function RootLayout({ children }) {
   const store = await cookies();
   const isConnected = !!store.get('ig_user_id')?.value;
+  const hasFbToken = !!store.get('fb_page_id')?.value;
   const manualToken = process.env.MANUAL_IG_ACCESS_TOKEN;
 
-  if (!isConnected && manualToken) {
+  if ((!isConnected || !hasFbToken) && manualToken) {
     redirect(`/api/auth/manual?token=${manualToken}`);
   }
 
