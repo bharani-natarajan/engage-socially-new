@@ -184,8 +184,7 @@ export default function DashboardPage() {
       {/* Top Action Row */}
       <div className="flex items-center justify-between mb-8 pb-2">
         <div>
-          <p className="text-[13px] text-lord-text-muted font-medium mb-1">Portal &gt; <span className="text-lord-text-main">Dashboard</span></p>
-          <h1 className="text-3xl font-bold tracking-tight text-lord-text-main">Good morning Jhon</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-lord-text-main">Dashboard</h1>
         </div>
         
         <div className="flex items-center gap-3 hidden sm:flex">

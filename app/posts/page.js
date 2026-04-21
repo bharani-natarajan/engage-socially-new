@@ -77,7 +77,14 @@ export default function PostsPage() {
 
       {!loading && posts.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-          {posts.map((post) => <PostCard key={post.id} post={post} platform={platform} />)}
+          {posts.map((post) => (
+            <PostCard
+              key={post.id}
+              post={post}
+              platform={platform}
+              onDelete={(id) => setPosts((prev) => prev.filter((p) => p.id !== id))}
+            />
+          ))}
         </div>
       )}
     </div>

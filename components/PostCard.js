@@ -4,11 +4,35 @@ import Link from 'next/link';
 import { useState } from 'react';
 import CommentsModal from './CommentsModal';
 
-export default function PostCard({ post, platform = 'instagram' }) {
+export default function PostCard({ post, platform = 'instagram', onDelete }) {
   const [showComments, setShowComments] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
   const thumb = post.thumbnail_url ?? post.media_url;
   const date = new Date(post.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   const isFacebook = platform === 'facebook';
+  const postHref = isFacebook ? `/posts/${post.id}?platform=facebook` : `/posts/${post.id}`;
+
+  async function handleDelete() {
+    if (platform === 'instagram') {
+      setDeleteError('Instagram does not support deleting posts via API. Please delete from the Instagram app.');
+      return;
+    }
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      const res = await fetch(`/api/facebook/posts/${post.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Delete failed');
+      onDelete?.(post.id);
+    } catch (err) {
+      setDeleteError(err.message);
+      setDeleting(false);
+      setConfirmDelete(false);
+    }
+  }
 
   const imageInner = (
     <>
@@ -35,25 +59,19 @@ export default function PostCard({ post, platform = 'instagram' }) {
   return (
     <>
       <div className="group flex flex-col rounded-2xl overflow-hidden bg-lord-card border border-lord-border hover:border-green-200 hover:shadow-lg hover:shadow-green-500/10 transition-all shadow-sm">
-        {isFacebook ? (
-          <a
-            href={post.permalink_url ?? '#'}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="relative aspect-square overflow-hidden bg-gray-50 block"
-          >
-            {imageInner}
-          </a>
-        ) : (
-          <Link href={`/posts/${post.id}`} className="relative aspect-square overflow-hidden bg-gray-50 block">
-            {imageInner}
-          </Link>
-        )}
+        <Link href={postHref} className="relative aspect-square overflow-hidden bg-gray-50 block">
+          {imageInner}
+        </Link>
 
         <div className="p-4 flex-1 flex flex-col gap-2">
           {post.caption && (
             <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">{post.caption}</p>
           )}
+
+          {deleteError && (
+            <p className="text-[10px] text-red-500 leading-tight">{deleteError}</p>
+          )}
+
           <div className="flex items-center justify-between mt-auto pt-1">
             <div className="flex items-center gap-3 text-xs text-gray-400">
               <span className="flex items-center gap-1">
@@ -65,7 +83,40 @@ export default function PostCard({ post, platform = 'instagram' }) {
                 {(post.comments_count ?? 0).toLocaleString()}
               </button>
             </div>
-            <span className="text-xs text-gray-400">{date}</span>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-400">{date}</span>
+
+              {/* Delete */}
+              {!confirmDelete ? (
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-red-400"
+                  title="Delete post"
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+                  </svg>
+                </button>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="text-[10px] font-semibold text-red-500 hover:text-red-600 disabled:opacity-50"
+                  >
+                    {deleting ? '…' : 'Delete'}
+                  </button>
+                  <span className="text-gray-300 text-[10px]">/</span>
+                  <button
+                    onClick={() => { setConfirmDelete(false); setDeleteError(''); }}
+                    className="text-[10px] font-semibold text-gray-400 hover:text-gray-600"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
