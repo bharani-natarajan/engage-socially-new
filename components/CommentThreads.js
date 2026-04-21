@@ -48,8 +48,8 @@ async function callAiReply(commentText, username, postCaption) {
   return data.suggestion;
 }
 
-async function callSendReply(commentId, message) {
-  const res = await fetch('/api/instagram/comments', {
+async function callSendReply(commentId, message, platform = 'instagram') {
+  const res = await fetch(`/api/${platform}/comments`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ commentId, message }),
@@ -58,7 +58,7 @@ async function callSendReply(commentId, message) {
   return res.json();
 }
 
-function CommentItem({ comment, mediaId, postCaption }) {
+function CommentItem({ comment, mediaId, postCaption, platform }) {
   const [showReply, setShowReply] = useState(false);
   const [showDm, setShowDm] = useState(false);
   const [replyText, setReplyText] = useState('');
@@ -82,7 +82,7 @@ function CommentItem({ comment, mediaId, postCaption }) {
     setSending(true);
     setReplyError('');
     try {
-      const data = await callSendReply(comment.id, replyText.trim());
+      const data = await callSendReply(comment.id, replyText.trim(), platform);
       setReplies((prev) => [...prev, { id: data.id, text: replyText.trim(), username: 'me', timestamp: new Date().toISOString() }]);
       setReplyText('');
       setShowReply(false);
@@ -137,7 +137,7 @@ function CommentItem({ comment, mediaId, postCaption }) {
     setReplyError('');
     try {
       const suggestion = await callAiReply(comment.text, comment.username, postCaption);
-      const data = await callSendReply(comment.id, suggestion);
+      const data = await callSendReply(comment.id, suggestion, platform);
       setReplies((prev) => [...prev, { id: data.id, text: suggestion, username: 'me', timestamp: new Date().toISOString() }]);
       setAutoReplied(true);
     } catch (err) {
@@ -267,7 +267,7 @@ function CommentItem({ comment, mediaId, postCaption }) {
   );
 }
 
-export default function CommentThreads({ comments, mediaId, postCaption }) {
+export default function CommentThreads({ comments, mediaId, postCaption, platform = 'instagram' }) {
   const [replyAllProgress, setReplyAllProgress] = useState(null); // null | { done, total }
   const [replyAllDone, setReplyAllDone] = useState(false);
 
@@ -284,7 +284,7 @@ export default function CommentThreads({ comments, mediaId, postCaption }) {
     for (const c of unanswered) {
       try {
         const suggestion = await callAiReply(c.text, c.username, postCaption);
-        await callSendReply(c.id, suggestion);
+        await callSendReply(c.id, suggestion, platform);
         done++;
         setReplyAllProgress({ done, total: unanswered.length });
       } catch { /* continue */ }
@@ -324,7 +324,7 @@ export default function CommentThreads({ comments, mediaId, postCaption }) {
       )}
 
       {comments.map((comment) => (
-        <CommentItem key={comment.id} comment={comment} mediaId={mediaId} postCaption={postCaption ?? ''} />
+        <CommentItem key={comment.id} comment={comment} mediaId={mediaId} postCaption={postCaption ?? ''} platform={platform} />
       ))}
     </div>
   );

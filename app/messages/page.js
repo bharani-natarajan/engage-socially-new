@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { usePlatform } from '@/components/PlatformContext';
 
 function timeAgo(ts) {
   const diff = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
@@ -21,6 +22,7 @@ function Avatar({ name, size = 'md' }) {
 }
 
 export default function MessagesPage() {
+  const { platform } = usePlatform();
   const [conversations, setConversations] = useState([]);
   const [loadingConvos, setLoadingConvos] = useState(true);
   const [convosError, setConvosError] = useState('');
@@ -36,11 +38,19 @@ export default function MessagesPage() {
 
   const bottomRef = useRef(null);
 
+  // Reload conversations when platform changes
+  useEffect(() => {
+    setConversations([]);
+    setSelectedConvo(null);
+    setMessages([]);
+    setConvosError('');
+  }, [platform]);
+
   // Load conversations
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch('/api/instagram/conversations');
+        const res = await fetch(`/api/${platform}/conversations`);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed to load conversations');
         setConversations(data.data ?? []);
@@ -51,7 +61,7 @@ export default function MessagesPage() {
       }
     }
     load();
-  }, []);
+  }, [platform]);
 
   // Load messages when conversation is selected
   useEffect(() => {
@@ -62,7 +72,7 @@ export default function MessagesPage() {
 
     async function load() {
       try {
-        const res = await fetch(`/api/instagram/conversations/${selectedConvo.id}`);
+        const res = await fetch(`/api/${platform}/conversations/${selectedConvo.id}`);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed to load messages');
         // Messages come newest-first; reverse for chat order
@@ -94,7 +104,7 @@ export default function MessagesPage() {
     setSending(true);
     setSendError('');
     try {
-      const res = await fetch('/api/instagram/messages', {
+      const res = await fetch(`/api/${platform}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ recipientId: other.id, message: replyText.trim() }),

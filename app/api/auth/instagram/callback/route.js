@@ -76,13 +76,15 @@ export async function GET(request) {
       path: '/',
       maxAge: 60 * 24 * 60 * 60, // 60 days
     };
+    // Instagram tokens
     store.set('ig_access_token', longToken, base);
     store.set('ig_user_id', igUserId, base);
-    // Username is not sensitive — keep readable by client for display
-    store.set('ig_username', profileData.username ?? '', {
-      ...base,
-      httpOnly: false,
-    });
+    store.set('ig_username', profileData.username ?? '', { ...base, httpOnly: false });
+
+    // Facebook Page tokens (from the same OAuth flow)
+    store.set('fb_page_token', page.access_token, base);
+    store.set('fb_page_id', page.id, base);
+    store.set('fb_page_name', page.name ?? '', { ...base, httpOnly: false });
 
     return NextResponse.redirect(`${APP_URL}/?connected=true`);
   } catch (err) {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { usePlatform } from '@/components/PlatformContext';
 
 // -------------------------------------------------------------
 // Component: Status Pill (Waiting, Done, Failed)
@@ -32,7 +33,7 @@ function StatusPill({ status }) {
   );
 }
 
-function CommentRow({ comment, onReplied }) {
+function CommentRow({ comment, onReplied, platform = 'instagram' }) {
   const [status, setStatus] = useState('idle'); // idle | replying | done | error
 
   async function autoReply() {
@@ -53,7 +54,7 @@ function CommentRow({ comment, onReplied }) {
       });
       const aiData = await aiRes.json();
       if (!aiRes.ok) throw new Error(aiData.error);
-      const replyRes = await fetch('/api/instagram/comments', {
+      const replyRes = await fetch(`/api/${platform}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ commentId: comment.commentId, message: aiData.suggestion }),
@@ -103,6 +104,7 @@ function CommentRow({ comment, onReplied }) {
 }
 
 export default function DashboardPage() {
+  const { platform } = usePlatform();
   const [latestPost, setLatestPost] = useState(null);
   const [topComments, setTopComments] = useState([]);
   const [totalLikes, setTotalLikes] = useState(0);
@@ -119,7 +121,10 @@ export default function DashboardPage() {
   const [replyAllDone, setReplyAllDone] = useState(0);
 
   useEffect(() => {
-    fetch('/api/instagram/dashboard')
+    setCommentsLoading(true);
+    setLatestPost(null);
+    setTopComments([]);
+    fetch(`/api/${platform}/dashboard`)
       .then((r) => r.json())
       .then((d) => {
         if (d.latestPostPreview) setLatestPost(d.latestPostPreview);
@@ -136,7 +141,7 @@ export default function DashboardPage() {
       })
       .catch(() => {})
       .finally(() => setCommentsLoading(false));
-  }, []);
+  }, [platform]);
 
   function removeComment(commentId) {
     setTopComments((prev) => prev.filter((c) => c.commentId !== commentId));
@@ -162,7 +167,7 @@ export default function DashboardPage() {
         });
         const aiData = await aiRes.json();
         if (!aiRes.ok) continue;
-        const replyRes = await fetch('/api/instagram/comments', {
+        const replyRes = await fetch(`/api/${platform}/comments`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ commentId: c.commentId, message: aiData.suggestion }),
@@ -592,7 +597,7 @@ export default function DashboardPage() {
                <div className="py-10 text-center text-lord-text-muted text-[13px]">All caught up! No unanswered comments.</div>
              ) : (
                topComments.map((c) => (
-                 <CommentRow key={c.commentId} comment={c} onReplied={removeComment} />
+                 <CommentRow key={c.commentId} comment={c} onReplied={removeComment} platform={platform} />
                ))
              )}
            </div>

@@ -5,7 +5,7 @@ import CommentThreads from './CommentThreads';
 
 const SETTING_AI_AUTO_REPLY = 'setting_ai_auto_reply';
 
-export default function CommentsModal({ post, onClose }) {
+export default function CommentsModal({ post, platform = 'instagram', onClose }) {
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -15,7 +15,7 @@ export default function CommentsModal({ post, onClose }) {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch(`/api/instagram/comments?mediaId=${post.id}`);
+        const res = await fetch(`/api/${platform}/comments?mediaId=${post.id}`);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed to load comments');
         const loaded = data.data ?? [];
@@ -43,7 +43,7 @@ export default function CommentsModal({ post, onClose }) {
                 const aiData = await aiRes.json();
                 if (!aiRes.ok || !aiData.suggestion) continue;
 
-                const replyRes = await fetch('/api/instagram/comments', {
+                const replyRes = await fetch(`/api/${platform}/comments`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ commentId: comment.id, message: aiData.suggestion }),
@@ -165,7 +165,7 @@ export default function CommentsModal({ post, onClose }) {
               <p className="text-sm text-red-500 text-center py-10">{error}</p>
             )}
             {!loading && !error && (
-              <CommentThreads comments={comments} mediaId={post.id} postCaption={post.caption} />
+              <CommentThreads comments={comments} mediaId={post.id} postCaption={post.caption} platform={platform} />
             )}
           </div>
         </div>

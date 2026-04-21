@@ -10,6 +10,11 @@ export function GET() {
       'instagram_manage_comments',
       'instagram_manage_messages',
       'pages_show_list',
+      'pages_read_engagement',
+      'pages_manage_posts',
+      'pages_messaging',
+      'pages_read_user_content',
+      'pages_manage_engagement',
     ].join(','),
     response_type: 'code',
   });

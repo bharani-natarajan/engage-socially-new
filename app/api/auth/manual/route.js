@@ -57,13 +57,15 @@ export async function GET(request) {
       maxAge: 60 * 24 * 60 * 60, // 60 days
     };
 
-    // Inject the long-lived token into the cookie jar
+    // Instagram tokens
     store.set('ig_access_token', longLivedToken, base);
     store.set('ig_user_id', igUserId, base);
-    store.set('ig_username', profileData.username ?? 'ManualAuth', {
-      ...base,
-      httpOnly: false,
-    });
+    store.set('ig_username', profileData.username ?? 'ManualAuth', { ...base, httpOnly: false });
+
+    // Facebook Page tokens — same page from /me/accounts
+    store.set('fb_page_token', page.access_token, base);
+    store.set('fb_page_id', page.id, base);
+    store.set('fb_page_name', page.name ?? '', { ...base, httpOnly: false });
 
     return NextResponse.redirect(`${APP_URL}/?connected=true`);
   } catch (err) {

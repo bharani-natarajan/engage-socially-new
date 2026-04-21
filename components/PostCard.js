@@ -4,30 +4,51 @@ import Link from 'next/link';
 import { useState } from 'react';
 import CommentsModal from './CommentsModal';
 
-export default function PostCard({ post }) {
+export default function PostCard({ post, platform = 'instagram' }) {
   const [showComments, setShowComments] = useState(false);
   const thumb = post.thumbnail_url ?? post.media_url;
   const date = new Date(post.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const isFacebook = platform === 'facebook';
+
+  const imageInner = (
+    <>
+      {thumb ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={thumb} alt={post.caption ?? 'Post'} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center text-gray-300 text-4xl">📸</div>
+      )}
+      {isFacebook && (
+        <span className="absolute top-2 left-2 px-2 py-0.5 rounded-lg bg-[#1877F2]/90 text-white text-xs font-bold">f</span>
+      )}
+      {!isFacebook && post.media_type === 'VIDEO' && (
+        <span className="absolute top-2 right-2 px-2 py-0.5 rounded-lg bg-black/60 text-white text-xs font-medium flex items-center gap-1">
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg> Video
+        </span>
+      )}
+      {!isFacebook && post.media_type === 'CAROUSEL_ALBUM' && (
+        <span className="absolute top-2 right-2 px-2 py-0.5 rounded-lg bg-black/60 text-white text-xs font-medium">⊞ Album</span>
+      )}
+    </>
+  );
 
   return (
     <>
       <div className="group flex flex-col rounded-2xl overflow-hidden bg-lord-card border border-lord-border hover:border-green-200 hover:shadow-lg hover:shadow-green-500/10 transition-all shadow-sm">
-        <Link href={`/posts/${post.id}`} className="relative aspect-square overflow-hidden bg-gray-50 block">
-          {thumb ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={thumb} alt={post.caption ?? 'Post'} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-300 text-4xl">📸</div>
-          )}
-          {post.media_type === 'VIDEO' && (
-            <span className="absolute top-2 right-2 px-2 py-0.5 rounded-lg bg-black/60 text-white text-xs font-medium flex items-center gap-1">
-              <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg> Video
-            </span>
-          )}
-          {post.media_type === 'CAROUSEL_ALBUM' && (
-            <span className="absolute top-2 right-2 px-2 py-0.5 rounded-lg bg-black/60 text-white text-xs font-medium">⊞ Album</span>
-          )}
-        </Link>
+        {isFacebook ? (
+          <a
+            href={post.permalink_url ?? '#'}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="relative aspect-square overflow-hidden bg-gray-50 block"
+          >
+            {imageInner}
+          </a>
+        ) : (
+          <Link href={`/posts/${post.id}`} className="relative aspect-square overflow-hidden bg-gray-50 block">
+            {imageInner}
+          </Link>
+        )}
 
         <div className="p-4 flex-1 flex flex-col gap-2">
           {post.caption && (
@@ -49,7 +70,7 @@ export default function PostCard({ post }) {
         </div>
       </div>
 
-      {showComments && <CommentsModal post={post} onClose={() => setShowComments(false)} />}
+      {showComments && <CommentsModal post={post} platform={platform} onClose={() => setShowComments(false)} />}
     </>
   );
 }
