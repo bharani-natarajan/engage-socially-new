@@ -69,9 +69,6 @@ function CommentRow({ comment, onReplied, platform = 'instagram' }) {
 
   return (
     <div className="flex items-center gap-3.5 py-4 px-1">
-      <div className="w-12 h-12 rounded-full bg-gray-200 overflow-hidden flex-shrink-0 flex items-center justify-center font-bold text-[16px] text-gray-500">
-        {comment.username.charAt(0).toUpperCase()}
-      </div>
       <div className="flex-1 min-w-0">
         <p className="text-[14px] font-bold text-lord-text-main leading-tight truncate">@{comment.username}</p>
         <p className="text-[12px] text-lord-text-muted truncate mt-0.5">{comment.text}</p>
@@ -585,7 +582,6 @@ export default function DashboardPage() {
              {commentsLoading ? (
                [...Array(5)].map((_, i) => (
                  <div key={i} className="flex items-center gap-3.5 py-4 px-1">
-                   <div className="w-12 h-12 rounded-full bg-gray-200 animate-pulse flex-shrink-0" />
                    <div className="flex-1 space-y-2">
                      <div className="h-3.5 bg-gray-200 rounded animate-pulse w-2/5" />
                      <div className="h-3 bg-gray-200 rounded animate-pulse w-3/5" />
