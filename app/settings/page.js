@@ -25,6 +25,7 @@ export default function SettingsPage() {
   const [mounted, setMounted] = useState(false);
   const [liName, setLiName] = useState(null);
   const [liStatus, setLiStatus] = useState(''); // 'connected' | 'error' | ''
+  const [liError, setLiError] = useState('');
 
   useEffect(() => {
     setAutoReply(localStorage.getItem(SETTING_AI_AUTO_REPLY) === 'true');
@@ -36,7 +37,10 @@ export default function SettingsPage() {
     setLiName(match ? decodeURIComponent(match[1]) : null);
     // Handle redirect feedback from OAuth
     if (searchParams.get('li_connected')) setLiStatus('connected');
-    if (searchParams.get('li_error')) setLiStatus('error');
+    if (searchParams.get('li_error')) {
+      setLiStatus('error');
+      setLiError(decodeURIComponent(searchParams.get('li_error')));
+    }
     setMounted(true);
   }, [searchParams]);
 
@@ -102,7 +106,9 @@ export default function SettingsPage() {
             </p>
           )}
           {liStatus === 'error' && (
-            <p className="text-xs text-red-500">LinkedIn connection failed. Please try again.</p>
+            <p className="text-xs text-red-500">
+              LinkedIn connection failed: {liError || 'Please try again.'}
+            </p>
           )}
 
           <p className="text-[11px] text-lord-text-muted leading-relaxed">
