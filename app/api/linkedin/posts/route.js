@@ -13,6 +13,10 @@ export async function GET() {
     const posts = (result.elements ?? []).map(normalizePost);
     return NextResponse.json({ data: posts });
   } catch (err) {
+    // r_member_social not approved — return empty list so the UI degrades gracefully
+    if (err.message?.includes('permission') || err.message?.includes('403') || err.message?.includes('ACCESS_DENIED')) {
+      return NextResponse.json({ data: [], _notice: 'r_member_social scope not available' });
+    }
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

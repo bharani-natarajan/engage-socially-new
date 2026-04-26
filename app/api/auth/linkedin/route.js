@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
-const SCOPES = ['openid', 'profile', 'email', 'w_member_social', 'r_member_social'].join(' ');
+const SCOPES = ['openid', 'profile', 'email', 'w_member_social'].join(' ');
 
 export async function GET() {
   const params = new URLSearchParams({
