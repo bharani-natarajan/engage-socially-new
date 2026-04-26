@@ -13,11 +13,20 @@ export default function PostCard({ post, platform = 'instagram', onDelete }) {
   const thumb = post.thumbnail_url ?? post.media_url;
   const date = new Date(post.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   const isFacebook = platform === 'facebook';
-  const postHref = isFacebook ? `/posts/${post.id}?platform=facebook` : `/posts/${post.id}`;
+  const isLinkedIn = platform === 'linkedin';
+  const postHref = isFacebook
+    ? `/posts/${post.id}?platform=facebook`
+    : isLinkedIn
+    ? `/posts/${encodeURIComponent(post.id)}?platform=linkedin`
+    : `/posts/${post.id}`;
 
   async function handleDelete() {
     if (platform === 'instagram') {
       setDeleteError('Instagram does not support deleting posts via API. Please delete from the Instagram app.');
+      return;
+    }
+    if (platform === 'linkedin') {
+      setDeleteError('LinkedIn does not support deleting posts via API.');
       return;
     }
     setDeleting(true);
@@ -44,6 +53,9 @@ export default function PostCard({ post, platform = 'instagram', onDelete }) {
       )}
       {isFacebook && (
         <span className="absolute top-2 left-2 px-2 py-0.5 rounded-lg bg-[#1877F2]/90 text-white text-xs font-bold">f</span>
+      )}
+      {isLinkedIn && (
+        <span className="absolute top-2 left-2 px-2 py-0.5 rounded-lg bg-[#0A66C2]/90 text-white text-xs font-bold">in</span>
       )}
       {!isFacebook && post.media_type === 'VIDEO' && (
         <span className="absolute top-2 right-2 px-2 py-0.5 rounded-lg bg-black/60 text-white text-xs font-medium flex items-center gap-1">

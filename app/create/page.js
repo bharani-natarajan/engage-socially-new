@@ -8,7 +8,8 @@ const STEPS = { idle: 'idle', uploading: 'uploading', publishing: 'publishing', 
 const PLATFORM_OPTIONS = [
   { value: 'instagram', label: 'Instagram', color: 'bg-gradient-to-br from-purple-500 to-pink-500' },
   { value: 'facebook',  label: 'Facebook',  color: 'bg-[#1877F2]' },
-  { value: 'both',      label: 'Both',      color: 'bg-lord-green' },
+  { value: 'linkedin',  label: 'LinkedIn',  color: 'bg-[#0A66C2]' },
+  { value: 'both',      label: 'Instagram + Facebook', color: 'bg-lord-green' },
 ];
 
 export default function CreatePostPage() {
@@ -113,6 +114,17 @@ export default function CreatePostPage() {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Facebook publish failed');
+      }
+
+      if (platform === 'linkedin') {
+        setStatusMsg('Publishing to LinkedIn…');
+        const res = await fetch('/api/linkedin/publish', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageUrl, caption }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'LinkedIn publish failed');
       }
 
       setStep(STEPS.done);

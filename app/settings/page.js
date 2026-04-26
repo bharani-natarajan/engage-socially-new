@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 export const SETTING_AI_AUTO_REPLY = 'setting_ai_auto_reply';
 export const SETTING_AI_CONTEXT = 'setting_ai_context';
@@ -15,20 +16,29 @@ const TONES = [
 ];
 
 export default function SettingsPage() {
+  const searchParams = useSearchParams();
   const [autoReply, setAutoReply] = useState(false);
   const [brandContext, setBrandContext] = useState('');
   const [tone, setTone] = useState('friendly');
   const [avoid, setAvoid] = useState('');
   const [saved, setSaved] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [liName, setLiName] = useState(null);
+  const [liStatus, setLiStatus] = useState(''); // 'connected' | 'error' | ''
 
   useEffect(() => {
     setAutoReply(localStorage.getItem(SETTING_AI_AUTO_REPLY) === 'true');
     setBrandContext(localStorage.getItem(SETTING_AI_CONTEXT) ?? '');
     setTone(localStorage.getItem(SETTING_AI_TONE) ?? 'friendly');
     setAvoid(localStorage.getItem(SETTING_AI_AVOID) ?? '');
+    // Read LinkedIn name from non-httpOnly cookie
+    const match = document.cookie.match(/(?:^|;\s*)li_person_name=([^;]*)/);
+    setLiName(match ? decodeURIComponent(match[1]) : null);
+    // Handle redirect feedback from OAuth
+    if (searchParams.get('li_connected')) setLiStatus('connected');
+    if (searchParams.get('li_error')) setLiStatus('error');
     setMounted(true);
-  }, []);
+  }, [searchParams]);
 
   function toggleAutoReply() {
     const next = !autoReply;
@@ -48,6 +58,58 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-5">
+
+      {/* Connected Accounts */}
+      <div className="bg-lord-card rounded-2xl border border-lord-border shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-lord-border">
+          <h3 className="text-sm font-bold text-lord-text-main">Connected Accounts</h3>
+          <p className="text-xs text-lord-text-muted mt-0.5">Manage your social platform connections</p>
+        </div>
+        <div className="p-6 space-y-4">
+          {/* LinkedIn */}
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-[#0A66C2] flex items-center justify-center flex-shrink-0">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                  <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-lord-text-main">LinkedIn</p>
+                {liName ? (
+                  <p className="text-xs text-lord-text-muted">Connected as {liName}</p>
+                ) : (
+                  <p className="text-xs text-lord-text-muted">Not connected</p>
+                )}
+              </div>
+            </div>
+            <a
+              href="/api/auth/linkedin"
+              className={`px-4 py-2 rounded-full text-[12px] font-bold transition-colors ${
+                liName
+                  ? 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                  : 'bg-[#0A66C2] text-white hover:bg-[#004182]'
+              }`}
+            >
+              {liName ? 'Reconnect' : 'Connect'}
+            </a>
+          </div>
+
+          {liStatus === 'connected' && (
+            <p className="text-xs text-lord-green font-semibold flex items-center gap-1.5">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              LinkedIn connected successfully
+            </p>
+          )}
+          {liStatus === 'error' && (
+            <p className="text-xs text-red-500">LinkedIn connection failed. Please try again.</p>
+          )}
+
+          <p className="text-[11px] text-lord-text-muted leading-relaxed">
+            Requires <span className="font-medium">w_member_social</span> and <span className="font-medium">r_member_social</span> scopes on your LinkedIn app. Reading posts requires the "Share on LinkedIn" product approval.
+          </p>
+        </div>
+      </div>
 
       {/* AI Auto Reply toggle */}
       <div className="bg-lord-card rounded-2xl border border-lord-border shadow-sm overflow-hidden">

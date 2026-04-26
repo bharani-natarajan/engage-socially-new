@@ -2,7 +2,8 @@ import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getMediaById, getMediaInsights, getComments } from '@/lib/instagram';
-import { getPagePostById, getPostComments, normalizePost, normalizeComment } from '@/lib/facebook';
+import { getPagePostById, getPostComments as getFbPostComments, normalizePost as normalizeFbPost, normalizeComment as normalizeFbComment } from '@/lib/facebook';
+import { getPostById as getLiPostById, getSocialActions, getPostComments as getLiPostComments, normalizePost as normalizeLiPost, normalizeComment as normalizeLiComment } from '@/lib/linkedin';
 import CommentThreads from '@/components/CommentThreads';
 
 export const dynamic = 'force-dynamic';
@@ -25,6 +26,7 @@ export default async function PostDetailPage({ params, searchParams }) {
   const { id } = await params;
   const platform = (await searchParams)?.platform ?? 'instagram';
   const isFacebook = platform === 'facebook';
+  const isLinkedIn = platform === 'linkedin';
 
   const store = await cookies();
 
@@ -32,18 +34,41 @@ export default async function PostDetailPage({ params, searchParams }) {
   let comments = [];
   let insights = {};
 
-  if (isFacebook) {
+  if (isLinkedIn) {
+    const liToken = store.get('li_access_token')?.value;
+    if (!liToken) notFound();
+
+    try {
+      const raw = await getLiPostById(id, liToken);
+      post = normalizeLiPost(raw);
+    } catch { notFound(); }
+
+    try {
+      const [actionsResult, commentsResult] = await Promise.allSettled([
+        getSocialActions(id, liToken),
+        getLiPostComments(id, liToken),
+      ]);
+      if (actionsResult.status === 'fulfilled') {
+        post.like_count = actionsResult.value.likeCount ?? post.like_count;
+        post.comments_count = actionsResult.value.commentCount ?? post.comments_count;
+      }
+      if (commentsResult.status === 'fulfilled') {
+        comments = (commentsResult.value.elements ?? []).map(normalizeLiComment);
+      }
+    } catch { /* no social data */ }
+
+  } else if (isFacebook) {
     const pageToken = store.get('fb_page_token')?.value;
     if (!pageToken) notFound();
 
     try {
       const raw = await getPagePostById(id, pageToken);
-      post = normalizePost(raw);
+      post = normalizeFbPost(raw);
     } catch { notFound(); }
 
     try {
-      const commentsData = await getPostComments(id, pageToken);
-      comments = (commentsData.data ?? []).map(normalizeComment);
+      const commentsData = await getFbPostComments(id, pageToken);
+      comments = (commentsData.data ?? []).map(normalizeFbComment);
     } catch { /* no comments */ }
 
   } else {
@@ -131,7 +156,7 @@ export default async function PostDetailPage({ params, searchParams }) {
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
               </svg>
             } />
-            {!isFacebook && <>
+            {!isFacebook && !isLinkedIn && <>
               <MetricRow label="Reach" value={insights.reach} icon="👁" />
               <MetricRow label="Impressions" value={insights.impressions} icon="📊" />
               <MetricRow label="Saved" value={insights.saved} icon="🔖" />
@@ -144,8 +169,8 @@ export default async function PostDetailPage({ params, searchParams }) {
             <div className="space-y-2.5">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Platform</span>
-                <span className="font-medium" style={{ color: isFacebook ? '#1877F2' : '#833ab4' }}>
-                  {isFacebook ? 'Facebook' : 'Instagram'}
+                <span className="font-medium" style={{ color: isFacebook ? '#1877F2' : isLinkedIn ? '#0A66C2' : '#833ab4' }}>
+                  {isFacebook ? 'Facebook' : isLinkedIn ? 'LinkedIn' : 'Instagram'}
                 </span>
               </div>
               {!isFacebook && (
@@ -167,7 +192,7 @@ export default async function PostDetailPage({ params, searchParams }) {
                   rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-500 hover:text-blue-600 hover:border-blue-300 transition-colors"
                 >
-                  View on {isFacebook ? 'Facebook' : 'Instagram'}
+                  View on {isFacebook ? 'Facebook' : isLinkedIn ? 'LinkedIn' : 'Instagram'}
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
                     <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
