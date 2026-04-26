@@ -34,7 +34,7 @@ export async function GET(request) {
     const profileRes = await fetch('https://api.linkedin.com/v2/userinfo', {
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        'LinkedIn-Version': '202501',
+        'LinkedIn-Version': '202504',
       },
       cache: 'no-store',
     });
