@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { upsertLead } from '@/lib/leads';
 
 const INTENT_STYLES = {
   'Inquiry':        { bg: 'bg-blue-50',   text: 'text-blue-600',  border: 'border-blue-200'  },
@@ -298,6 +299,7 @@ export default function CommentThreads({ comments, mediaId, postCaption, platfor
   const [intents, setIntents] = useState({});
   const [classifying, setClassifying] = useState(false);
   const [activeFilter, setActiveFilter] = useState('All');
+  const [newLeadCount, setNewLeadCount] = useState(0);
 
   useEffect(() => {
     if (!comments?.length) return;
@@ -310,8 +312,30 @@ export default function CommentThreads({ comments, mediaId, postCaption, platfor
       .then((r) => r.json())
       .then((data) => {
         const map = {};
-        (data.results ?? []).forEach((r) => { map[r.id] = r.intent; });
+        let added = 0;
+        (data.results ?? []).forEach((r) => {
+          map[r.id] = r.intent;
+          if (r.intent === 'Inquiry' || r.intent === 'Purchase Intent') {
+            const comment = comments.find((c) => c.id === r.id);
+            if (comment) {
+              const userId = comment.from?.id || comment.username;
+              upsertLead({
+                id: `${platform}_${userId}`,
+                username: comment.username,
+                name: comment.from?.name || comment.username,
+                userId,
+                platform,
+                intent: r.intent,
+                commentText: comment.text,
+                postCaption: postCaption ?? '',
+                addedAt: new Date().toISOString(),
+              });
+              added++;
+            }
+          }
+        });
         setIntents(map);
+        if (added > 0) setNewLeadCount(added);
       })
       .catch(() => {})
       .finally(() => setClassifying(false));
@@ -348,6 +372,25 @@ export default function CommentThreads({ comments, mediaId, postCaption, platfor
 
   return (
     <div>
+      {/* Leads detected banner */}
+      {newLeadCount > 0 && (
+        <a
+          href="/leads"
+          className="flex items-center justify-between gap-3 mb-4 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 hover:bg-amber-100 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            <span className="text-[12px] font-semibold text-amber-700">
+              {newLeadCount} new lead{newLeadCount !== 1 ? 's' : ''} detected from this post
+            </span>
+          </div>
+          <span className="text-[11px] text-amber-600 font-medium">View Leads →</span>
+        </a>
+      )}
+
       {/* Intent filter tabs */}
       <div className="flex flex-wrap gap-1.5 mb-4">
         {FILTERS.map((f) => {
