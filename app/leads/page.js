@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getLeads, removeLead } from '@/lib/leads';
+import { getLeads, removeLead, upsertLead } from '@/lib/leads';
 
 const INTENT_STYLES = {
   'Inquiry':         { bg: 'bg-blue-50',  text: 'text-blue-600',  border: 'border-blue-200'  },
@@ -43,11 +43,34 @@ export default function LeadsPage() {
   const [mounted, setMounted] = useState(false);
   const [intentFilter, setIntentFilter] = useState('All');
   const [platformFilter, setPlatformFilter] = useState('All');
+  const [scanning, setScanning] = useState(false);
+  const [scanResult, setScanResult] = useState(null); // { added, scanned }
 
   useEffect(() => {
     setLeads(getLeads());
     setMounted(true);
   }, []);
+
+  async function scanPosts() {
+    setScanning(true);
+    setScanResult(null);
+    try {
+      const res = await fetch('/api/leads/scan');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Scan failed');
+      let added = 0;
+      for (const lead of data.leads ?? []) {
+        upsertLead(lead);
+        added++;
+      }
+      setLeads(getLeads());
+      setScanResult({ added, scanned: data.scanned ?? 0 });
+    } catch (err) {
+      setScanResult({ error: err.message });
+    } finally {
+      setScanning(false);
+    }
+  }
 
   function handleRemove(id) {
     removeLead(id);
@@ -71,19 +94,41 @@ export default function LeadsPage() {
     <div className="max-w-4xl mx-auto space-y-5">
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-lord-text-main">Leads</h1>
           <p className="text-sm text-lord-text-muted mt-0.5">
             Users who showed interest via comments — auto-detected from Inquiry and Purchase Intent
           </p>
         </div>
-        {leads.length > 0 && (
-          <span className="px-3 py-1 rounded-full bg-lord-green/10 text-lord-green text-sm font-semibold">
-            {leads.length} total
-          </span>
-        )}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {leads.length > 0 && (
+            <span className="px-3 py-1 rounded-full bg-lord-green/10 text-lord-green text-sm font-semibold">
+              {leads.length} total
+            </span>
+          )}
+          <button
+            onClick={scanPosts}
+            disabled={scanning}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-lord-green text-white text-[13px] font-semibold hover:bg-lord-green-dark transition-colors disabled:opacity-60 shadow-sm"
+          >
+            {scanning ? (
+              <><svg className="animate-spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>Scanning…</>
+            ) : (
+              <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Scan Posts</>
+            )}
+          </button>
+        </div>
       </div>
+
+      {/* Scan result feedback */}
+      {scanResult && (
+        <div className={`px-4 py-3 rounded-xl border text-sm font-medium ${scanResult.error ? 'bg-red-50 border-red-200 text-red-600' : 'bg-green-50 border-green-200 text-green-700'}`}>
+          {scanResult.error
+            ? `Scan failed: ${scanResult.error}`
+            : `Scanned ${scanResult.scanned} comments — ${scanResult.added} lead${scanResult.added !== 1 ? 's' : ''} found`}
+        </div>
+      )}
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
