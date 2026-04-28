@@ -293,7 +293,7 @@ function CommentItem({ comment, mediaId, postCaption, platform, intent }) {
   );
 }
 
-export default function CommentThreads({ comments, mediaId, postCaption, platform = 'instagram' }) {
+export default function CommentThreads({ comments, mediaId, postCaption, postThumbnail, platform = 'instagram' }) {
   const [replyAllProgress, setReplyAllProgress] = useState(null); // null | { done, total }
   const [replyAllDone, setReplyAllDone] = useState(false);
   const [intents, setIntents] = useState({});
@@ -327,7 +327,9 @@ export default function CommentThreads({ comments, mediaId, postCaption, platfor
                 platform,
                 intent: r.intent,
                 commentText: comment.text,
+                postId: mediaId,
                 postCaption: postCaption ?? '',
+                postThumbnail: postThumbnail ?? null,
                 addedAt: new Date().toISOString(),
               });
               added++;

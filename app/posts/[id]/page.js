@@ -211,7 +211,7 @@ export default async function PostDetailPage({ params, searchParams }) {
           {comments.length > 0 && <span className="ml-2 text-sm text-gray-400 font-normal">({comments.length})</span>}
         </h2>
         <div className="rounded-xl bg-white border border-gray-200 p-5">
-          <CommentThreads comments={comments} mediaId={id} postCaption={caption ?? ''} platform={platform} />
+          <CommentThreads comments={comments} mediaId={id} postCaption={caption ?? ''} postThumbnail={thumb ?? null} platform={platform} />
         </div>
       </div>
     </div>

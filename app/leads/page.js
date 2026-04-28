@@ -228,10 +228,23 @@ export default function LeadsPage() {
                   <p className="text-xs text-lord-text-muted leading-relaxed line-clamp-2">
                     &ldquo;{lead.commentText}&rdquo;
                   </p>
-                  {lead.postCaption && (
-                    <p className="text-[11px] text-lord-text-muted mt-1 truncate">
-                      On: {lead.postCaption}
-                    </p>
+                  {lead.postId && (
+                    <a
+                      href={`/posts/${lead.postId}?platform=${lead.platform}`}
+                      className="inline-flex items-center gap-2 mt-2 group"
+                    >
+                      {lead.postThumbnail && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={lead.postThumbnail}
+                          alt=""
+                          className="w-8 h-8 rounded-lg object-cover flex-shrink-0 border border-lord-border"
+                        />
+                      )}
+                      <span className="text-[11px] text-lord-text-muted group-hover:text-lord-green transition-colors truncate max-w-[200px]">
+                        {lead.postCaption ? lead.postCaption : 'View post'} →
+                      </span>
+                    </a>
                   )}
                 </div>
 

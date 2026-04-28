@@ -62,7 +62,9 @@ export async function GET() {
               username: c.username ?? '',
               from: c.from ?? {},
               platform: 'instagram',
+              postId: p.id,
               postCaption: p.caption ?? '',
+              postThumbnail: p.thumbnail_url ?? p.media_url ?? null,
             }))
           )
         )
@@ -87,7 +89,9 @@ export async function GET() {
               username: c.username ?? '',
               from: c.from ?? {},
               platform: 'facebook',
+              postId: p.id,
               postCaption: p.message ?? p.story ?? '',
+              postThumbnail: p.full_picture ?? p.picture ?? null,
             }))
           )
         )
@@ -134,7 +138,9 @@ export async function GET() {
       platform: comment.platform,
       intent,
       commentText: comment.text,
+      postId: comment.postId,
       postCaption: comment.postCaption,
+      postThumbnail: comment.postThumbnail ?? null,
       addedAt: new Date().toISOString(),
     });
   }

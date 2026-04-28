@@ -116,6 +116,7 @@ export default function DashboardPage() {
   const [commentsLoading, setCommentsLoading] = useState(true);
   const [replyingAll, setReplyingAll] = useState(false);
   const [replyAllDone, setReplyAllDone] = useState(0);
+  const [topLeadPosts, setTopLeadPosts] = useState([]);
 
   useEffect(() => {
     setCommentsLoading(true);
@@ -139,6 +140,21 @@ export default function DashboardPage() {
       .catch(() => {})
       .finally(() => setCommentsLoading(false));
   }, [platform]);
+
+  useEffect(() => {
+    try {
+      const leads = JSON.parse(localStorage.getItem('es_leads') ?? '[]');
+      const counts = {};
+      for (const lead of leads) {
+        if (!lead.postId) continue;
+        const key = `${lead.platform}_${lead.postId}`;
+        if (!counts[key]) counts[key] = { postId: lead.postId, platform: lead.platform, postCaption: lead.postCaption, postThumbnail: lead.postThumbnail, count: 0 };
+        counts[key].count++;
+      }
+      const sorted = Object.values(counts).sort((a, b) => b.count - a.count).slice(0, 3);
+      setTopLeadPosts(sorted);
+    } catch { /* ignore */ }
+  }, []);
 
   function removeComment(commentId) {
     setTopComments((prev) => prev.filter((c) => c.commentId !== commentId));
@@ -598,6 +614,45 @@ export default function DashboardPage() {
              )}
            </div>
         </div>
+
+        {/* Top Lead-Generating Posts */}
+        {topLeadPosts.length > 0 && (
+          <div className="bg-lord-card rounded-[32px] p-6 shadow-sm lg:col-span-3">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-[11px] text-lord-text-muted font-medium mb-0.5">From Comments</p>
+                <h3 className="text-lg font-bold text-lord-text-main">Top Posts by Leads</h3>
+              </div>
+              <a href="/leads" className="text-[12px] text-lord-green font-semibold hover:underline">View all leads →</a>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {topLeadPosts.map((post, i) => (
+                <a
+                  key={post.postId}
+                  href={`/posts/${post.postId}?platform=${post.platform}`}
+                  className="flex items-center gap-3 p-3 rounded-2xl border border-lord-border hover:border-lord-green/40 hover:bg-lord-green/5 transition-colors group"
+                >
+                  <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
+                    {post.postThumbnail ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={post.postThumbnail} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-300 text-xl">📸</div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] text-lord-text-muted mb-0.5 capitalize">{post.platform}</p>
+                    <p className="text-xs font-semibold text-lord-text-main truncate group-hover:text-lord-green transition-colors">
+                      {post.postCaption || 'Untitled post'}
+                    </p>
+                    <p className="text-[11px] text-amber-600 font-bold mt-0.5">{post.count} lead{post.count !== 1 ? 's' : ''}</p>
+                  </div>
+                  <span className="text-[18px] font-black text-lord-border">#{i + 1}</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
 
       </div>
     </div>
