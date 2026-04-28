@@ -58,11 +58,11 @@ async function callAiReply(commentText, username, postCaption) {
   return data.suggestion;
 }
 
-async function callSendReply(commentId, message, platform = 'instagram') {
+async function callSendReply(commentId, message, platform = 'instagram', postId = null) {
   const res = await fetch(`/api/${platform}/comments`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ commentId, message }),
+    body: JSON.stringify({ commentId, message, postId }),
   });
   if (!res.ok) throw new Error('Reply failed');
   return res.json();
@@ -78,7 +78,7 @@ function IntentBadge({ intent }) {
   );
 }
 
-function CommentItem({ comment, mediaId, postCaption, platform, intent }) {
+function CommentItem({ comment, mediaId, postCaption, platform, intent, postId }) {
   const [showReply, setShowReply] = useState(false);
   const [showDm, setShowDm] = useState(false);
   const [replyText, setReplyText] = useState('');
@@ -102,7 +102,7 @@ function CommentItem({ comment, mediaId, postCaption, platform, intent }) {
     setSending(true);
     setReplyError('');
     try {
-      const data = await callSendReply(comment.id, replyText.trim(), platform);
+      const data = await callSendReply(comment.id, replyText.trim(), platform, postId);
       setReplies((prev) => [...prev, { id: data.id, text: replyText.trim(), username: 'me', timestamp: new Date().toISOString() }]);
       setReplyText('');
       setShowReply(false);
@@ -157,7 +157,7 @@ function CommentItem({ comment, mediaId, postCaption, platform, intent }) {
     setReplyError('');
     try {
       const suggestion = await callAiReply(comment.text, comment.username, postCaption);
-      const data = await callSendReply(comment.id, suggestion, platform);
+      const data = await callSendReply(comment.id, suggestion, platform, postId);
       setReplies((prev) => [...prev, { id: data.id, text: suggestion, username: 'me', timestamp: new Date().toISOString() }]);
       setAutoReplied(true);
     } catch (err) {
@@ -363,7 +363,7 @@ export default function CommentThreads({ comments, mediaId, postCaption, postThu
     for (const c of unanswered) {
       try {
         const suggestion = await callAiReply(c.text, c.username, postCaption);
-        await callSendReply(c.id, suggestion, platform);
+        await callSendReply(c.id, suggestion, platform, mediaId);
         done++;
         setReplyAllProgress({ done, total: unanswered.length });
       } catch { /* continue */ }
@@ -451,7 +451,7 @@ export default function CommentThreads({ comments, mediaId, postCaption, postThu
         <p className="text-center py-8 text-gray-400 text-sm">No {activeFilter.toLowerCase()} comments.</p>
       )}
       {filtered.map((comment) => (
-        <CommentItem key={comment.id} comment={comment} mediaId={mediaId} postCaption={postCaption ?? ''} platform={platform} intent={intents[comment.id]} />
+        <CommentItem key={comment.id} comment={comment} mediaId={mediaId} postId={mediaId} postCaption={postCaption ?? ''} platform={platform} intent={intents[comment.id]} />
       ))}
     </div>
   );

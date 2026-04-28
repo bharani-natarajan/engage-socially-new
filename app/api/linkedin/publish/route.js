@@ -1,32 +1,18 @@
 import { NextResponse } from 'next/server';
-import { requireLinkedInAuth } from '@/lib/tokens';
-import { initializeImageUpload, uploadImageBinary, publishPost } from '@/lib/linkedin';
+import { requireUnipileAuth } from '@/lib/tokens';
+import { createPost } from '@/lib/unipile';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
-  const { tokens, error } = await requireLinkedInAuth();
+  const { tokens, error } = await requireUnipileAuth();
   if (error) return error;
 
-  const { imageUrl, caption, orgUrn } = await request.json();
-  const authorUrn = orgUrn || tokens.personUrn;
+  const { imageUrl, caption, orgId } = await request.json();
 
   try {
-    let imageUrn = null;
-
-    if (imageUrl) {
-      const initRes = await initializeImageUpload(authorUrn, tokens.accessToken);
-      const { uploadUrl, image } = initRes.value;
-      imageUrn = image;
-
-      const imgRes = await fetch(imageUrl);
-      if (!imgRes.ok) throw new Error('Failed to fetch image for upload.');
-      const imgBuffer = await imgRes.arrayBuffer();
-      await uploadImageBinary(uploadUrl, imgBuffer, tokens.accessToken);
-    }
-
-    const result = await publishPost(authorUrn, caption ?? '', imageUrn, tokens.accessToken);
-    return NextResponse.json({ id: result.id });
+    const result = await createPost(tokens.accountId, caption ?? '', imageUrl ?? null, orgId ?? null);
+    return NextResponse.json({ id: result.id ?? result.social_id ?? null });
   } catch (err) {
     console.error('[LinkedIn publish error]', err.message);
     return NextResponse.json({ error: err.message }, { status: 500 });

@@ -8,6 +8,7 @@ const STEPS = { idle: 'idle', uploading: 'uploading', publishing: 'publishing', 
 const PLATFORM_OPTIONS = [
   { value: 'instagram', label: 'Instagram', color: 'bg-gradient-to-br from-purple-500 to-pink-500' },
   { value: 'facebook',  label: 'Facebook',  color: 'bg-[#1877F2]' },
+  { value: 'linkedin',  label: 'LinkedIn',  color: 'bg-[#0A66C2]' },
   { value: 'both',      label: 'Instagram + Facebook', color: 'bg-lord-green' },
 ];
 
@@ -117,12 +118,11 @@ export default function CreatePostPage() {
 
       if (platform === 'linkedin') {
         setStatusMsg('Publishing to LinkedIn…');
-        const liOrgId = localStorage.getItem('li_org_id');
-        const orgUrn = liOrgId ? `urn:li:organization:${liOrgId}` : null;
+        const orgId = localStorage.getItem('li_org_id') || null;
         const res = await fetch('/api/linkedin/publish', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageUrl, caption, orgUrn }),
+          body: JSON.stringify({ imageUrl, caption, orgId }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'LinkedIn publish failed');

@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getMediaById, getMediaInsights, getComments } from '@/lib/instagram';
 import { getPagePostById, getPostComments as getFbPostComments, normalizePost as normalizeFbPost, normalizeComment as normalizeFbComment } from '@/lib/facebook';
-import { getPostById as getLiPostById, getSocialActions, getPostComments as getLiPostComments, normalizePost as normalizeLiPost, normalizeComment as normalizeLiComment } from '@/lib/linkedin';
+import { getPostById as getLiPostById, getPostComments as getLiPostComments, normalizePost as normalizeLiPost, normalizeComment as normalizeLiComment } from '@/lib/unipile';
 import CommentThreads from '@/components/CommentThreads';
 
 export const dynamic = 'force-dynamic';
@@ -35,27 +35,18 @@ export default async function PostDetailPage({ params, searchParams }) {
   let insights = {};
 
   if (isLinkedIn) {
-    const liToken = store.get('li_access_token')?.value;
-    if (!liToken) notFound();
+    const accountId = store.get('unipile_account_id')?.value;
+    if (!accountId) notFound();
 
     try {
-      const raw = await getLiPostById(id, liToken);
+      const raw = await getLiPostById(id, accountId);
       post = normalizeLiPost(raw);
     } catch { notFound(); }
 
     try {
-      const [actionsResult, commentsResult] = await Promise.allSettled([
-        getSocialActions(id, liToken),
-        getLiPostComments(id, liToken),
-      ]);
-      if (actionsResult.status === 'fulfilled') {
-        post.like_count = actionsResult.value.likeCount ?? post.like_count;
-        post.comments_count = actionsResult.value.commentCount ?? post.comments_count;
-      }
-      if (commentsResult.status === 'fulfilled') {
-        comments = (commentsResult.value.elements ?? []).map(normalizeLiComment);
-      }
-    } catch { /* no social data */ }
+      const commentsResult = await getLiPostComments(id, accountId);
+      comments = (commentsResult.items ?? commentsResult.data ?? []).map(normalizeLiComment);
+    } catch { /* no comments */ }
 
   } else if (isFacebook) {
     const pageToken = store.get('fb_page_token')?.value;
