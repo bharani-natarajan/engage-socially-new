@@ -1,6 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+
+const INTENT_STYLES = {
+  'Inquiry':        { bg: 'bg-blue-50',   text: 'text-blue-600',  border: 'border-blue-200'  },
+  'Complaint':      { bg: 'bg-red-50',    text: 'text-red-500',   border: 'border-red-200'   },
+  'Purchase Intent':{ bg: 'bg-green-50',  text: 'text-green-600', border: 'border-green-200' },
+  'Others':         { bg: 'bg-gray-50',   text: 'text-gray-500',  border: 'border-gray-200'  },
+};
+
+const FILTERS = ['All', 'Inquiry', 'Complaint', 'Purchase Intent', 'Others'];
 
 function timeAgo(ts) {
   const diff = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
@@ -58,7 +67,17 @@ async function callSendReply(commentId, message, platform = 'instagram') {
   return res.json();
 }
 
-function CommentItem({ comment, mediaId, postCaption, platform }) {
+function IntentBadge({ intent }) {
+  if (!intent) return null;
+  const s = INTENT_STYLES[intent] ?? INTENT_STYLES['Others'];
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-semibold ${s.bg} ${s.text} ${s.border}`}>
+      {intent}
+    </span>
+  );
+}
+
+function CommentItem({ comment, mediaId, postCaption, platform, intent }) {
   const [showReply, setShowReply] = useState(false);
   const [showDm, setShowDm] = useState(false);
   const [replyText, setReplyText] = useState('');
@@ -182,6 +201,12 @@ function CommentItem({ comment, mediaId, postCaption, platform }) {
 
           <p className="text-sm text-gray-600 mt-0.5 leading-relaxed">{comment.text}</p>
 
+          {intent && (
+            <div className="mt-1.5">
+              <IntentBadge intent={intent} />
+            </div>
+          )}
+
           <div className="flex items-center gap-3 mt-2">
             <button
               onClick={() => { setShowReply((v) => !v); setShowDm(false); }}
@@ -270,12 +295,40 @@ function CommentItem({ comment, mediaId, postCaption, platform }) {
 export default function CommentThreads({ comments, mediaId, postCaption, platform = 'instagram' }) {
   const [replyAllProgress, setReplyAllProgress] = useState(null); // null | { done, total }
   const [replyAllDone, setReplyAllDone] = useState(false);
+  const [intents, setIntents] = useState({});
+  const [classifying, setClassifying] = useState(false);
+  const [activeFilter, setActiveFilter] = useState('All');
+
+  useEffect(() => {
+    if (!comments?.length) return;
+    setClassifying(true);
+    fetch('/api/comments/classify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ comments: comments.map((c) => ({ id: c.id, text: c.text })) }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        const map = {};
+        (data.results ?? []).forEach((r) => { map[r.id] = r.intent; });
+        setIntents(map);
+      })
+      .catch(() => {})
+      .finally(() => setClassifying(false));
+  }, [comments]);
 
   if (!comments?.length) {
     return <div className="text-center py-10 text-gray-400 text-sm">No comments yet.</div>;
   }
 
-  const unanswered = comments.filter((c) => !(c.replies?.data?.length > 0));
+  const counts = FILTERS.reduce((acc, f) => {
+    acc[f] = f === 'All' ? comments.length : comments.filter((c) => intents[c.id] === f).length;
+    return acc;
+  }, {});
+
+  const filtered = activeFilter === 'All' ? comments : comments.filter((c) => intents[c.id] === activeFilter);
+
+  const unanswered = filtered.filter((c) => !(c.replies?.data?.length > 0));
 
   async function replyToAll() {
     if (!unanswered.length) return;
@@ -295,6 +348,32 @@ export default function CommentThreads({ comments, mediaId, postCaption, platfor
 
   return (
     <div>
+      {/* Intent filter tabs */}
+      <div className="flex flex-wrap gap-1.5 mb-4">
+        {FILTERS.map((f) => {
+          const s = f !== 'All' ? INTENT_STYLES[f] : null;
+          const isActive = activeFilter === f;
+          return (
+            <button
+              key={f}
+              onClick={() => setActiveFilter(f)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[11px] font-semibold transition-colors ${
+                isActive
+                  ? f === 'All'
+                    ? 'bg-gray-800 text-white border-gray-800'
+                    : `${s.bg} ${s.text} ${s.border} ring-1 ring-offset-0 ring-current`
+                  : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              {f}
+              <span className={`text-[10px] ${isActive && f !== 'All' ? s.text : 'text-gray-400'}`}>
+                {classifying && f !== 'All' ? '…' : counts[f]}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Auto Reply All header */}
       {unanswered.length > 0 && (
         <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-100">
@@ -323,8 +402,11 @@ export default function CommentThreads({ comments, mediaId, postCaption, platfor
         </div>
       )}
 
-      {comments.map((comment) => (
-        <CommentItem key={comment.id} comment={comment} mediaId={mediaId} postCaption={postCaption ?? ''} platform={platform} />
+      {filtered.length === 0 && (
+        <p className="text-center py-8 text-gray-400 text-sm">No {activeFilter.toLowerCase()} comments.</p>
+      )}
+      {filtered.map((comment) => (
+        <CommentItem key={comment.id} comment={comment} mediaId={mediaId} postCaption={postCaption ?? ''} platform={platform} intent={intents[comment.id]} />
       ))}
     </div>
   );
