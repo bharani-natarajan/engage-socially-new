@@ -40,13 +40,19 @@ export default async function PostDetailPage({ params, searchParams }) {
 
     try {
       const raw = await getLiPostById(id, accountId);
+      console.log('[LI post detail] raw keys:', Object.keys(raw));
       post = normalizeLiPost(raw);
-    } catch { notFound(); }
+    } catch (err) {
+      console.error('[LI post detail error]', err.message, 'id:', id);
+      notFound();
+    }
 
     try {
       const commentsResult = await getLiPostComments(id, accountId);
       comments = (commentsResult.items ?? commentsResult.data ?? []).map(normalizeLiComment);
-    } catch { /* no comments */ }
+    } catch (err) {
+      console.error('[LI comments error]', err.message);
+    }
 
   } else if (isFacebook) {
     const pageToken = store.get('fb_page_token')?.value;
