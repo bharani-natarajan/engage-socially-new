@@ -14,7 +14,9 @@ export async function GET(request) {
 
   try {
     const result = await getPostComments(decodeURIComponent(mediaId), tokens.accountId);
-    const comments = (result.items ?? result.data ?? []).map(normalizeComment);
+    const raw = result.items ?? result.data ?? [];
+    if (raw[0]) console.log('[LI comment sample]', JSON.stringify(raw[0]).slice(0, 600));
+    const comments = raw.map(normalizeComment);
     return NextResponse.json({ data: comments });
   } catch (err) {
     console.error('[LinkedIn comments GET error]', err.message);

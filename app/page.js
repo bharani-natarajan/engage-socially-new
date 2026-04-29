@@ -54,10 +54,12 @@ function CommentRow({ comment, onReplied, platform = 'instagram' }) {
       });
       const aiData = await aiRes.json();
       if (!aiRes.ok) throw new Error(aiData.error);
+      const replyBody = { commentId: comment.commentId, message: aiData.suggestion };
+      if (platform === 'linkedin' && comment.postId) replyBody.postId = comment.postId;
       const replyRes = await fetch(`/api/${platform}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ commentId: comment.commentId, message: aiData.suggestion }),
+        body: JSON.stringify(replyBody),
       });
       if (!replyRes.ok) throw new Error('Reply failed');
       setStatus('done');
@@ -180,10 +182,12 @@ export default function DashboardPage() {
         });
         const aiData = await aiRes.json();
         if (!aiRes.ok) continue;
+        const replyBody = { commentId: c.commentId, message: aiData.suggestion };
+        if (platform === 'linkedin' && c.postId) replyBody.postId = c.postId;
         const replyRes = await fetch(`/api/${platform}/comments`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ commentId: c.commentId, message: aiData.suggestion }),
+          body: JSON.stringify(replyBody),
         });
         if (replyRes.ok) { setReplyAllDone((n) => n + 1); removeComment(c.commentId); }
       } catch { /* continue */ }
