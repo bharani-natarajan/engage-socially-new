@@ -24,6 +24,7 @@ function MetricRow({ label, value, icon }) {
 
 export default async function PostDetailPage({ params, searchParams }) {
   const { id } = await params;
+  const decodedId = decodeURIComponent(id);
   const platform = (await searchParams)?.platform ?? 'instagram';
   const isFacebook = platform === 'facebook';
   const isLinkedIn = platform === 'linkedin';
@@ -38,7 +39,6 @@ export default async function PostDetailPage({ params, searchParams }) {
     const accountId = store.get('unipile_account_id')?.value;
     if (!accountId) notFound();
 
-    const decodedId = decodeURIComponent(id);
     const orgId = store.get('li_org_id')?.value || null;
 
     try {
@@ -216,7 +216,7 @@ export default async function PostDetailPage({ params, searchParams }) {
           {comments.length > 0 && <span className="ml-2 text-sm text-gray-400 font-normal">({comments.length})</span>}
         </h2>
         <div className="rounded-xl bg-white border border-gray-200 p-5">
-          <CommentThreads comments={comments} mediaId={id} postCaption={caption ?? ''} postThumbnail={thumb ?? null} platform={platform} />
+          <CommentThreads comments={comments} mediaId={decodedId} postCaption={caption ?? ''} postThumbnail={thumb ?? null} platform={platform} />
         </div>
       </div>
     </div>
