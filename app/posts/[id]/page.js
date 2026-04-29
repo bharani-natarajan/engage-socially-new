@@ -44,6 +44,7 @@ export default async function PostDetailPage({ params, searchParams }) {
     try {
       const result = await getLiPosts(accountId, orgId);
       const rawPosts = result.items ?? result.data ?? [];
+      console.log('[LI detail] looking for:', decodedId, 'available ids:', rawPosts.map(p => ({ id: p.id, social_id: p.social_id })));
       const rawPost = rawPosts.find(p => {
         const pid = p.social_id ?? p.id ?? '';
         return pid === decodedId || encodeURIComponent(pid) === id;
