@@ -4,13 +4,16 @@ import { getPosts, normalizePost } from '@/lib/unipile';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request) {
   const { tokens, error } = await requireUnipileAuth();
   if (error) return error;
 
+  const { searchParams } = new URL(request.url);
+  const orgId = searchParams.get('orgId') || null;
+
   try {
-    const result = await getPosts(tokens.accountId);
-    console.log('[LinkedIn posts] raw keys:', Object.keys(result), 'count:', (result.items ?? result.data ?? result.items ?? []).length);
+    const result = await getPosts(tokens.accountId, orgId);
+    console.log('[LinkedIn posts] raw keys:', Object.keys(result), 'first few items:', JSON.stringify(result).slice(0, 300));
     const posts = (result.items ?? result.data ?? []).map(normalizePost);
     return NextResponse.json({ data: posts });
   } catch (err) {

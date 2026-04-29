@@ -15,7 +15,12 @@ export default function PostsPage() {
     setLoading(true);
     setError('');
     setPosts([]);
-    fetch(`/api/${platform}/posts`)
+    let apiUrl = `/api/${platform}/posts`;
+    if (platform === 'linkedin') {
+      const orgId = localStorage.getItem('li_org_id');
+      if (orgId) apiUrl += `?orgId=${encodeURIComponent(orgId)}`;
+    }
+    fetch(apiUrl)
       .then((r) => r.json())
       .then((d) => {
         if (d.error) throw new Error(d.error);
