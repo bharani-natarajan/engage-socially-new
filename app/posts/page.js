@@ -25,7 +25,7 @@ export default function PostsPage() {
       .finally(() => setLoading(false));
   }, [platform]);
 
-  const platformLabel = platform === 'facebook' ? 'Facebook' : 'Instagram';
+  const platformLabel = platform === 'facebook' ? 'Facebook' : platform === 'linkedin' ? 'LinkedIn' : 'Instagram';
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
