@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireUnipileAuth } from '@/lib/tokens';
-import { getPosts, normalizePost } from '@/lib/unipile';
+import { getPosts, getAccount, normalizePost } from '@/lib/unipile';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +12,8 @@ export async function GET(request) {
   const orgId = searchParams.get('orgId') || null;
 
   try {
+    const acct = await getAccount(tokens.accountId);
+    console.log('[LinkedIn account] keys:', Object.keys(acct), 'full:', JSON.stringify(acct).slice(0, 500));
     const result = await getPosts(tokens.accountId, orgId);
     console.log('[LinkedIn posts] raw keys:', Object.keys(result), 'first few items:', JSON.stringify(result).slice(0, 300));
     const posts = (result.items ?? result.data ?? []).map(normalizePost);
