@@ -13,7 +13,7 @@ export async function GET() {
     if (!url) throw new Error('No hosted auth URL returned from Unipile');
     return NextResponse.redirect(url);
   } catch (err) {
-    console.error('[Unipile auth error]', err.message);
+    console.error('[Unipile auth error]', err.message, err.stack);
     return NextResponse.redirect(
       `${APP_URL}/settings?li_error=${encodeURIComponent(err.message)}`
     );
