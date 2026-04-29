@@ -13,7 +13,11 @@ const INTENT_STYLES = {
 const FILTERS = ['All', 'Inquiry', 'Complaint', 'Purchase Intent', 'Others'];
 
 function timeAgo(ts) {
-  const diff = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
+  if (!ts) return '';
+  const ms = typeof ts === 'number' ? (ts < 1e11 ? ts * 1000 : ts) : new Date(ts).getTime();
+  if (isNaN(ms)) return '';
+  const diff = Math.floor((Date.now() - ms) / 1000);
+  if (diff < 0) return '';
   if (diff < 60) return `${diff}s ago`;
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
@@ -174,7 +178,14 @@ function CommentItem({ comment, mediaId, postCaption, platform, intent, postId }
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-baseline gap-2">
-              <span className="text-sm font-medium text-gray-900">@{comment.username}</span>
+              {comment.from?.profile_url ? (
+                <a href={comment.from.profile_url} target="_blank" rel="noopener noreferrer"
+                  className="text-sm font-medium text-gray-900 hover:text-[#0A66C2] transition-colors">
+                  @{comment.username}
+                </a>
+              ) : (
+                <span className="text-sm font-medium text-gray-900">@{comment.username}</span>
+              )}
               <span className="text-xs text-gray-400">{timeAgo(comment.timestamp)}</span>
             </div>
             {/* Auto Reply button — only if no replies yet */}
