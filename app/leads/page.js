@@ -11,6 +11,7 @@ const INTENT_STYLES = {
 const PLATFORM_STYLES = {
   instagram: { label: 'Instagram', bg: 'bg-purple-50', text: 'text-purple-600', border: 'border-purple-200' },
   facebook:  { label: 'Facebook',  bg: 'bg-blue-50',   text: 'text-blue-700',  border: 'border-blue-200'   },
+  linkedin:  { label: 'LinkedIn',  bg: 'bg-sky-50',    text: 'text-sky-700',   border: 'border-sky-200'    },
 };
 
 function Avatar({ name }) {
@@ -89,6 +90,7 @@ export default function LeadsPage() {
   const purchaseCount = leads.filter((l) => l.intent === 'Purchase Intent').length;
   const igCount = leads.filter((l) => l.platform === 'instagram').length;
   const fbCount = leads.filter((l) => l.platform === 'facebook').length;
+  const liCount = leads.filter((l) => l.platform === 'linkedin').length;
 
   return (
     <div className="max-w-4xl mx-auto space-y-5">
@@ -168,7 +170,7 @@ export default function LeadsPage() {
 
         {/* Platform filter */}
         <div className="flex gap-1">
-          {['All', 'Instagram', 'Facebook'].map((f) => (
+          {['All', 'Instagram', 'Facebook', 'LinkedIn'].map((f) => (
             <button
               key={f}
               onClick={() => setPlatformFilter(f)}
@@ -230,7 +232,7 @@ export default function LeadsPage() {
                   </p>
                   {lead.postId && (
                     <a
-                      href={`/posts/${lead.postId}?platform=${lead.platform}`}
+                      href={`/posts/${encodeURIComponent(lead.postId.includes('%') ? decodeURIComponent(lead.postId) : lead.postId)}?platform=${lead.platform}`}
                       className="inline-flex items-center gap-2 mt-2 group"
                     >
                       {lead.postThumbnail && (

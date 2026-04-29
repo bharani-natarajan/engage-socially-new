@@ -149,14 +149,16 @@ export default function DashboardPage() {
       const counts = {};
       for (const lead of leads) {
         if (!lead.postId) continue;
-        const key = `${lead.platform}_${lead.postId}`;
-        if (!counts[key]) counts[key] = { postId: lead.postId, platform: lead.platform, postCaption: lead.postCaption, postThumbnail: lead.postThumbnail, count: 0 };
+        if (lead.platform !== platform) continue;
+        const pid = lead.postId.includes('%') ? decodeURIComponent(lead.postId) : lead.postId;
+        const key = pid;
+        if (!counts[key]) counts[key] = { postId: pid, platform: lead.platform, postCaption: lead.postCaption, postThumbnail: lead.postThumbnail, count: 0 };
         counts[key].count++;
       }
       const sorted = Object.values(counts).sort((a, b) => b.count - a.count).slice(0, 3);
       setTopLeadPosts(sorted);
     } catch { /* ignore */ }
-  }, []);
+  }, [platform]);
 
   function removeComment(commentId) {
     setTopComments((prev) => prev.filter((c) => c.commentId !== commentId));
@@ -266,7 +268,11 @@ export default function DashboardPage() {
                     {commentsLoading ? 'Loading…' : 'No data'}
                   </div>
                 ) : (() => {
-                  const vals = last10.map((p) => p.comments);
+                  const rawVals = last10.map((p) => p.comments ?? 0);
+                  const minBars = 8;
+                  const vals = rawVals.length < minBars
+                    ? [...rawVals, ...Array(minBars - rawVals.length).fill(0)]
+                    : rawVals;
                   const max = Math.max(...vals, 1);
                   const barW = 14;
                   const gap = 6;

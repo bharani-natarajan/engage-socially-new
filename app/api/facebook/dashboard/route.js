@@ -21,7 +21,7 @@ export async function GET() {
     const last10 = posts.slice(0, 10).map((p) => ({
       id: p.id,
       caption: p.caption,
-      comments_count: p.comments_count,
+      comments: p.comments_count ?? 0,
       timestamp: p.timestamp,
     }));
 
