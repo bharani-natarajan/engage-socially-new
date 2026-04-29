@@ -88,7 +88,11 @@ export default function SettingsPage() {
             <input
               type="text"
               defaultValue={typeof window !== 'undefined' ? (localStorage.getItem('li_org_id') ?? '') : ''}
-              onChange={(e) => localStorage.setItem('li_org_id', e.target.value.trim())}
+              onChange={(e) => {
+                const v = e.target.value.trim();
+                localStorage.setItem('li_org_id', v);
+                document.cookie = `li_org_id=${encodeURIComponent(v)};path=/;max-age=${365*24*60*60};samesite=lax`;
+              }}
               placeholder="e.g. 12345678"
               className="w-full rounded-xl border border-lord-border bg-white px-4 py-2 text-[13px] text-lord-text-main placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-lord-green/40"
             />

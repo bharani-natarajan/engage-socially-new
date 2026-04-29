@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getMediaById, getMediaInsights, getComments } from '@/lib/instagram';
 import { getPagePostById, getPostComments as getFbPostComments, normalizePost as normalizeFbPost, normalizeComment as normalizeFbComment } from '@/lib/facebook';
-import { getPostById as getLiPostById, getPostComments as getLiPostComments, normalizePost as normalizeLiPost, normalizeComment as normalizeLiComment } from '@/lib/unipile';
+import { getPosts as getLiPosts, getPostComments as getLiPostComments, normalizePost as normalizeLiPost, normalizeComment as normalizeLiComment } from '@/lib/unipile';
 import CommentThreads from '@/components/CommentThreads';
 
 export const dynamic = 'force-dynamic';
@@ -38,17 +38,25 @@ export default async function PostDetailPage({ params, searchParams }) {
     const accountId = store.get('unipile_account_id')?.value;
     if (!accountId) notFound();
 
+    const decodedId = decodeURIComponent(id);
+    const orgId = store.get('li_org_id')?.value || null;
+
     try {
-      const raw = await getLiPostById(id, accountId);
-      console.log('[LI post detail] raw keys:', Object.keys(raw));
-      post = normalizeLiPost(raw);
+      const result = await getLiPosts(accountId, orgId);
+      const rawPosts = result.items ?? result.data ?? [];
+      const rawPost = rawPosts.find(p => {
+        const pid = p.social_id ?? p.id ?? '';
+        return pid === decodedId || encodeURIComponent(pid) === id;
+      });
+      if (!rawPost) { console.error('[LI detail] post not found, decodedId:', decodedId); notFound(); }
+      post = normalizeLiPost(rawPost);
     } catch (err) {
-      console.error('[LI post detail error]', err.message, 'id:', id);
+      console.error('[LI post detail error]', err.message);
       notFound();
     }
 
     try {
-      const commentsResult = await getLiPostComments(id, accountId);
+      const commentsResult = await getLiPostComments(decodedId, accountId);
       comments = (commentsResult.items ?? commentsResult.data ?? []).map(normalizeLiComment);
     } catch (err) {
       console.error('[LI comments error]', err.message);
