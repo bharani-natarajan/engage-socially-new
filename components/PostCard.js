@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import CommentsModal from './CommentsModal';
 
 export default function PostCard({ post, platform = 'instagram', onDelete }) {
@@ -9,6 +9,19 @@ export default function PostCard({ post, platform = 'instagram', onDelete }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+  const [leadCount, setLeadCount] = useState(0);
+
+  useEffect(() => {
+    try {
+      const leads = JSON.parse(localStorage.getItem('es_leads') ?? '[]');
+      const normalizedId = post.id.includes('%') ? decodeURIComponent(post.id) : post.id;
+      const count = leads.filter((l) => {
+        const pid = l.postId?.includes('%') ? decodeURIComponent(l.postId) : l.postId;
+        return pid === normalizedId && l.platform === platform;
+      }).length;
+      setLeadCount(count);
+    } catch { /* ignore */ }
+  }, [post.id, platform]);
 
   const thumb = post.thumbnail_url ?? post.media_url;
   const date = new Date(post.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -94,6 +107,12 @@ export default function PostCard({ post, platform = 'instagram', onDelete }) {
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                 {(post.comments_count ?? 0).toLocaleString()}
               </button>
+              {leadCount > 0 && (
+                <span className="flex items-center gap-1 text-amber-600 font-semibold">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                  {leadCount}
+                </span>
+              )}
             </div>
 
             <div className="flex items-center gap-2">

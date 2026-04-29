@@ -10,6 +10,7 @@ const PLATFORM_OPTIONS = [
   { value: 'facebook',  label: 'Facebook',  color: 'bg-[#1877F2]' },
   { value: 'linkedin',  label: 'LinkedIn',  color: 'bg-[#0A66C2]' },
   { value: 'both',      label: 'Instagram + Facebook', color: 'bg-lord-green' },
+  { value: 'all',       label: 'Instagram + Facebook + LinkedIn', color: 'bg-lord-green' },
 ];
 
 export default function CreatePostPage() {
@@ -126,6 +127,38 @@ export default function CreatePostPage() {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'LinkedIn publish failed');
+      }
+
+      if (platform === 'all') {
+        setStatusMsg('Publishing to Instagram…');
+        const igRes = await fetch('/api/instagram/publish', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageUrl, caption }),
+        });
+        const igData = await igRes.json();
+        if (!igRes.ok) throw new Error(igData.error || 'Instagram publish failed');
+
+        setStatusMsg('Publishing to Facebook…');
+        const fbRes = await fetch('/api/facebook/publish', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageUrl, caption }),
+        });
+        const fbData = await fbRes.json();
+        if (!fbRes.ok) throw new Error(fbData.error || 'Facebook publish failed');
+
+        if (imageUrl) {
+          setStatusMsg('Publishing to LinkedIn…');
+          const orgId = localStorage.getItem('li_org_id') || null;
+          const liRes = await fetch('/api/linkedin/publish', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageUrl, caption, orgId }),
+          });
+          const liData = await liRes.json();
+          if (!liRes.ok) throw new Error(liData.error || 'LinkedIn publish failed');
+        }
       }
 
       setStep(STEPS.done);
