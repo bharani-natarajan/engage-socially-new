@@ -19,7 +19,7 @@ export async function POST(request) {
     const posts = raw.map(normalizeSearchPost);
     return NextResponse.json({ data: posts, cursor: result.paging?.cursor ?? result.next_cursor ?? null });
   } catch (err) {
-    console.error('[LinkedIn search error]', err.message);
+    console.error('[LinkedIn search error]', err.message.slice(0, 800));
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

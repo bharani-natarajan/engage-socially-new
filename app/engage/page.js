@@ -4,9 +4,9 @@ import { useState } from 'react';
 
 const DATE_OPTIONS = [
   { value: '', label: 'Any time' },
-  { value: 'past-24h', label: 'Past 24 hours' },
-  { value: 'past-week', label: 'Past week' },
-  { value: 'past-month', label: 'Past month' },
+  { value: 'past_24h', label: 'Past 24 hours' },
+  { value: 'past_week', label: 'Past week' },
+  { value: 'past_month', label: 'Past month' },
 ];
 
 function timeAgo(ts) {
