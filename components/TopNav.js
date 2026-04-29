@@ -9,6 +9,7 @@ const links = [
   { href: '/create', label: 'Create Post' },
   { href: '/create/ai', label: 'AI Generate' },
   { href: '/leads', label: 'Leads' },
+  { href: '/engage', label: 'Engage' },
   { href: '/messages', label: 'Messages' },
   { href: '/settings', label: 'Settings' },
 ];

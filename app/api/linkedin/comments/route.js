@@ -29,12 +29,12 @@ export async function POST(request) {
   if (error) return error;
 
   const { commentId, message, postId } = await request.json();
-  if (!commentId || !message || !postId) {
-    return NextResponse.json({ error: 'commentId, message and postId are required' }, { status: 400 });
+  if (!message || !postId) {
+    return NextResponse.json({ error: 'message and postId are required' }, { status: 400 });
   }
 
   try {
-    const result = await replyToComment(postId, commentId, message, tokens.accountId);
+    const result = await replyToComment(postId, commentId ?? null, message, tokens.accountId);
     return NextResponse.json({ id: result.id ?? null });
   } catch (err) {
     console.error('[LinkedIn reply error]', err.message);
