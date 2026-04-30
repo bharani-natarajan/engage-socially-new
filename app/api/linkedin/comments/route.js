@@ -15,7 +15,11 @@ export async function GET(request) {
   try {
     const result = await getPostComments(decodeURIComponent(mediaId), tokens.accountId);
     const raw = result.items ?? result.data ?? [];
-    if (raw[0]) console.log('[LI comment sample]', JSON.stringify(raw[0]).slice(0, 600));
+    if (raw[0]) {
+      console.log('[LI comment keys]', Object.keys(raw[0]));
+      console.log('[LI comment author_info]', JSON.stringify(raw[0].author_info ?? raw[0].author ?? raw[0].actor ?? 'NOT FOUND'));
+      console.log('[LI comment full]', JSON.stringify(raw[0]));
+    }
     const comments = raw.map(normalizeComment);
     return NextResponse.json({ data: comments });
   } catch (err) {
