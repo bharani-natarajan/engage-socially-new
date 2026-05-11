@@ -22,6 +22,7 @@ export async function GET() {
 
     const store = await cookies();
     const connected = {};
+    const stopped = {};
 
     for (const account of accounts) {
       const provider = (account.provider ?? account.type ?? '').toUpperCase();
@@ -30,23 +31,27 @@ export async function GET() {
         account.username ??
         account.connection_params?.username ??
         provider;
+      const isStopped = (account.status ?? '').toUpperCase() === 'STOPPED';
 
       if (provider === 'LINKEDIN') {
         store.set('unipile_account_id', account.id, base);
         store.set('unipile_name', name, { ...base, httpOnly: false });
-        connected.linkedin = name;
+        if (isStopped) stopped.linkedin = { id: account.id, name };
+        else connected.linkedin = name;
       } else if (provider === 'INSTAGRAM') {
         store.set('unipile_ig_account_id', account.id, base);
         store.set('unipile_ig_name', name, { ...base, httpOnly: false });
-        connected.instagram = name;
+        if (isStopped) stopped.instagram = { id: account.id, name };
+        else connected.instagram = name;
       } else if (provider === 'FACEBOOK') {
         store.set('unipile_fb_account_id', account.id, base);
         store.set('unipile_fb_name', name, { ...base, httpOnly: false });
-        connected.facebook = name;
+        if (isStopped) stopped.facebook = { id: account.id, name };
+        else connected.facebook = name;
       }
     }
 
-    return NextResponse.json({ ok: true, connected });
+    return NextResponse.json({ ok: true, connected, stopped });
   } catch (err) {
     console.error('[Unipile sync error]', err.message);
     return NextResponse.json({ error: err.message }, { status: 500 });

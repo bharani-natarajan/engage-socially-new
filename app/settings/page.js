@@ -32,6 +32,7 @@ export default function SettingsPage() {
   const [fbName, setFbName] = useState(null);
   const [igInsightsConnected, setIgInsightsConnected] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [stopped, setStopped] = useState({});
 
   async function syncAccounts() {
     setSyncing(true);
@@ -43,6 +44,7 @@ export default function SettingsPage() {
         if (data.connected.instagram) setIgName(data.connected.instagram);
         if (data.connected.facebook) setFbName(data.connected.facebook);
       }
+      setStopped(data.stopped ?? {});
     } catch { /* silent */ } finally {
       setSyncing(false);
     }
@@ -96,6 +98,8 @@ export default function SettingsPage() {
   }
 
   if (!mounted) return null;
+
+  const platformKey = { LinkedIn: 'linkedin', Instagram: 'instagram', Facebook: 'facebook' };
 
   const accounts = [
     {
@@ -158,35 +162,57 @@ export default function SettingsPage() {
           </button>
         </div>
         <div className="p-6 space-y-5">
-          {accounts.map((acct) => (
-            <div key={acct.name}>
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: acct.color }}>
-                    {acct.icon}
+          {accounts.map((acct) => {
+            const key = platformKey[acct.name];
+            const stoppedInfo = stopped[key];
+            return (
+              <div key={acct.name}>
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: acct.color }}>
+                      {acct.icon}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-lord-text-main">{acct.name}</p>
+                      <p className="text-xs text-lord-text-muted">
+                        {stoppedInfo
+                          ? `${stoppedInfo.name} — disconnected`
+                          : acct.connectedName
+                          ? `Connected as ${acct.connectedName}`
+                          : 'Not connected'}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-semibold text-lord-text-main">{acct.name}</p>
-                    <p className="text-xs text-lord-text-muted">
-                      {acct.connectedName ? `Connected as ${acct.connectedName}` : 'Not connected'}
-                    </p>
-                  </div>
+                  <a
+                    href={stoppedInfo ? `/api/auth/unipile/reconnect?accountId=${stoppedInfo.id}&platform=${key}` : acct.href}
+                    className={`px-4 py-2 rounded-full text-[12px] font-bold transition-colors ${
+                      stoppedInfo
+                        ? 'bg-amber-500 text-white hover:bg-amber-600'
+                        : acct.connectedName
+                        ? 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                        : 'text-white hover:opacity-90'
+                    }`}
+                    style={!stoppedInfo && !acct.connectedName ? { backgroundColor: acct.color } : {}}
+                  >
+                    {stoppedInfo ? 'Reconnect' : acct.connectedName ? 'Reconnect' : 'Connect'}
+                  </a>
                 </div>
-                <a
-                  href={acct.href}
-                  className={`px-4 py-2 rounded-full text-[12px] font-bold transition-colors ${
-                    acct.connectedName ? 'bg-gray-100 text-gray-500 hover:bg-gray-200' : 'text-white hover:opacity-90'
-                  }`}
-                  style={acct.connectedName ? {} : { backgroundColor: acct.color }}
-                >
-                  {acct.connectedName ? 'Reconnect' : 'Connect'}
-                </a>
+                {stoppedInfo && (
+                  <div className="mt-2 ml-12 flex items-center gap-2 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+                      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                      <line x1="12" y1="9" x2="12" y2="13"/>
+                      <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                    <span>Account disconnected from provider. Re-authenticate to restore access.</span>
+                  </div>
+                )}
+                {acct.note && (
+                  <p className="text-[11px] text-lord-text-muted mt-1.5 ml-12">{acct.note}</p>
+                )}
               </div>
-              {acct.note && (
-                <p className="text-[11px] text-lord-text-muted mt-1.5 ml-12">{acct.note}</p>
-              )}
-            </div>
-          ))}
+            );
+          })}
 
           {/* LinkedIn company page ID */}
           <div className="mt-1 space-y-1">
