@@ -23,7 +23,9 @@ export default function PostCard({ post, platform = 'instagram', onDelete }) {
     } catch { /* ignore */ }
   }, [post.id, platform]);
 
-  const thumb = post.thumbnail_url ?? post.media_url;
+  const rawThumb = post.thumbnail_url ?? post.media_url;
+  const needsProxy = rawThumb && (platform === 'instagram' || platform === 'facebook');
+  const thumb = needsProxy ? `/api/image-proxy?url=${encodeURIComponent(rawThumb)}` : rawThumb;
   const date = new Date(post.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   const isFacebook = platform === 'facebook';
   const isLinkedIn = platform === 'linkedin';

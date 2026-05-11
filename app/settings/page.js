@@ -33,6 +33,7 @@ export default function SettingsPage() {
   const [igInsightsConnected, setIgInsightsConnected] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [stopped, setStopped] = useState({});
+  const [removing, setRemoving] = useState({});
 
   async function syncAccounts() {
     setSyncing(true);
@@ -82,6 +83,19 @@ export default function SettingsPage() {
     if (sp.get('fb_connected')) setFbName(getCookie('unipile_fb_name'));
     if (sp.get('connected')) setIgInsightsConnected(!!getCookie('ig_user_id'));
   }, [mounted]);
+
+  async function removeStoppedAccount(accountId, platform) {
+    setRemoving((r) => ({ ...r, [platform]: true }));
+    try {
+      await fetch(`/api/auth/unipile/account?accountId=${accountId}&platform=${platform}`, { method: 'DELETE' });
+      setStopped((s) => { const n = { ...s }; delete n[platform]; return n; });
+      if (platform === 'linkedin') setLiName(null);
+      if (platform === 'instagram') setIgName(null);
+      if (platform === 'facebook') setFbName(null);
+    } catch { /* silent */ } finally {
+      setRemoving((r) => { const n = { ...r }; delete n[platform]; return n; });
+    }
+  }
 
   function toggleAutoReply() {
     const next = !autoReply;
@@ -198,13 +212,25 @@ export default function SettingsPage() {
                   </a>
                 </div>
                 {stoppedInfo && (
-                  <div className="mt-2 ml-12 flex items-center gap-2 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+                  <div className="mt-2 ml-12 flex items-start gap-2 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5">
                       <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
                       <line x1="12" y1="9" x2="12" y2="13"/>
                       <line x1="12" y1="17" x2="12.01" y2="17"/>
                     </svg>
-                    <span>Account disconnected from provider. Re-authenticate to restore access.</span>
+                    <div className="flex-1">
+                      <span>Account disconnected from provider. Click <strong>Reconnect</strong> to re-authenticate.</span>
+                      {key === 'instagram' && (
+                        <span className="block mt-0.5 text-amber-600">Instagram requires a Business or Creator account linked to a Facebook Page.</span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => removeStoppedAccount(stoppedInfo.id, key)}
+                      disabled={removing[key]}
+                      className="ml-auto flex-shrink-0 text-[10px] text-amber-600 underline hover:text-amber-900 disabled:opacity-50"
+                    >
+                      {removing[key] ? 'Removing…' : 'Remove'}
+                    </button>
                   </div>
                 )}
                 {acct.note && (
