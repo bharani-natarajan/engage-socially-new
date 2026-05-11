@@ -122,8 +122,9 @@ function CommentItem({ comment, mediaId, postCaption, platform, intent, postId }
     if (!dmText.trim() || !recipientId) return;
     setSendingDm(true);
     setDmError('');
+    const dmEndpoint = platform === 'linkedin' ? '/api/linkedin/messages' : platform === 'facebook' ? '/api/facebook/messages' : '/api/instagram/messages';
     try {
-      const res = await fetch('/api/instagram/messages', {
+      const res = await fetch(dmEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ recipientId, message: dmText.trim() }),
