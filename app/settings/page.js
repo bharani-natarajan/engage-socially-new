@@ -31,6 +31,22 @@ export default function SettingsPage() {
   const [igName, setIgName] = useState(null);
   const [fbName, setFbName] = useState(null);
   const [igInsightsConnected, setIgInsightsConnected] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+
+  async function syncAccounts() {
+    setSyncing(true);
+    try {
+      const res = await fetch('/api/auth/unipile/sync');
+      const data = await res.json();
+      if (data.connected) {
+        if (data.connected.linkedin) setLiName(data.connected.linkedin);
+        if (data.connected.instagram) setIgName(data.connected.instagram);
+        if (data.connected.facebook) setFbName(data.connected.facebook);
+      }
+    } catch { /* silent */ } finally {
+      setSyncing(false);
+    }
+  }
 
   useEffect(() => {
     setAutoReply(localStorage.getItem(SETTING_AI_AUTO_REPLY) === 'true');
@@ -48,6 +64,12 @@ export default function SettingsPage() {
     document.cookie = `li_org_id=${encodeURIComponent(orgId)};path=/;max-age=${365*24*60*60};samesite=lax`;
     setMounted(true);
   }, []);
+
+  // On mount, sync account status from Unipile in case redirect callback didn't fire
+  useEffect(() => {
+    if (!mounted) return;
+    syncAccounts();
+  }, [mounted]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle success/error params from OAuth callbacks
   useEffect(() => {
@@ -119,9 +141,21 @@ export default function SettingsPage() {
 
       {/* Connected Accounts */}
       <div className="bg-lord-card rounded-2xl border border-lord-border shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-lord-border">
-          <h3 className="text-sm font-bold text-lord-text-main">Connected Accounts</h3>
-          <p className="text-xs text-lord-text-muted mt-0.5">Manage your social platform connections</p>
+        <div className="px-6 py-4 border-b border-lord-border flex items-center justify-between gap-4">
+          <div>
+            <h3 className="text-sm font-bold text-lord-text-main">Connected Accounts</h3>
+            <p className="text-xs text-lord-text-muted mt-0.5">Manage your social platform connections</p>
+          </div>
+          <button
+            onClick={syncAccounts}
+            disabled={syncing}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-lord-border text-lord-text-muted text-[11px] font-semibold hover:border-lord-green hover:text-lord-green transition-colors disabled:opacity-50"
+          >
+            <svg className={syncing ? 'animate-spin' : ''} width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+            </svg>
+            {syncing ? 'Syncing…' : 'Refresh'}
+          </button>
         </div>
         <div className="p-6 space-y-5">
           {accounts.map((acct) => (
