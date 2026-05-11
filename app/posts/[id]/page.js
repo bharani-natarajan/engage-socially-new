@@ -1,9 +1,17 @@
 import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { getMediaById, getMediaInsights, getComments } from '@/lib/instagram';
-import { getPagePostById, getPostComments as getFbPostComments, normalizePost as normalizeFbPost, normalizeComment as normalizeFbComment } from '@/lib/facebook';
-import { getPosts as getLiPosts, getPostComments as getLiPostComments, normalizePost as normalizeLiPost, normalizeComment as normalizeLiComment } from '@/lib/unipile';
+import { getMediaInsights } from '@/lib/instagram';
+import {
+  getPosts as getLiPosts,
+  getPostById,
+  getPostComments as getUnipilePostComments,
+  normalizePost as normalizeLiPost,
+  normalizeIgPost,
+  normalizeFbPost,
+  normalizeComment as normalizeLiComment,
+  normalizeFbComment,
+} from '@/lib/unipile';
 import CommentThreads from '@/components/CommentThreads';
 
 export const dynamic = 'force-dynamic';
@@ -56,61 +64,63 @@ export default async function PostDetailPage({ params, searchParams }) {
     }
 
     try {
-      const commentsResult = await getLiPostComments(decodedId, accountId);
+      const commentsResult = await getUnipilePostComments(decodedId, accountId);
       comments = (commentsResult.items ?? commentsResult.data ?? []).map(normalizeLiComment);
     } catch (err) {
       console.error('[LI comments error]', err.message);
     }
 
   } else if (isFacebook) {
-    const pageToken = store.get('fb_page_token')?.value;
-    if (!pageToken) notFound();
+    const accountId = store.get('unipile_fb_account_id')?.value;
+    if (!accountId) notFound();
 
     try {
-      const raw = await getPagePostById(id, pageToken);
+      const raw = await getPostById(decodedId, accountId);
       post = normalizeFbPost(raw);
     } catch { notFound(); }
 
     try {
-      const commentsData = await getFbPostComments(id, pageToken);
-      comments = (commentsData.data ?? []).map(normalizeFbComment);
+      const commentsResult = await getUnipilePostComments(decodedId, accountId);
+      comments = (commentsResult.items ?? commentsResult.data ?? []).map(normalizeFbComment);
     } catch { /* no comments */ }
 
   } else {
-    const token = store.get('ig_access_token')?.value;
-    const userId = store.get('ig_user_id')?.value;
-    if (!token || !userId) notFound();
+    // Instagram via Unipile
+    const accountId = store.get('unipile_ig_account_id')?.value;
+    if (!accountId) notFound();
 
     try {
-      post = await getMediaById(id, token);
+      const raw = await getPostById(decodedId, accountId);
+      post = normalizeIgPost(raw);
     } catch { notFound(); }
 
-    const [insightsResult, commentsResult] = await Promise.allSettled([
-      getMediaInsights(id, token, post.media_type),
-      getComments(id, token),
-    ]);
-
-    if (insightsResult.status === 'fulfilled') {
-      insights = Object.fromEntries(
-        (insightsResult.value.data ?? []).map((m) => [
-          m.name,
-          m.values?.[0]?.value ?? m.value ?? 0,
-        ])
-      );
+    try {
+      const commentsResult = await getUnipilePostComments(decodedId, accountId);
+      comments = (commentsResult.items ?? commentsResult.data ?? []).map(normalizeLiComment);
+    } catch (err) {
+      console.error('[IG comments error]', err.message);
     }
-    if (commentsResult.status === 'fulfilled') {
-      comments = commentsResult.value.data ?? [];
+
+    // Insights via direct Graph API — only if the user has also connected via Instagram OAuth
+    const igToken = store.get('ig_access_token')?.value;
+    if (igToken) {
+      try {
+        const rawInsights = await getMediaInsights(decodedId, igToken, post.media_type ?? 'IMAGE');
+        insights = Object.fromEntries(
+          (rawInsights.data ?? []).map((m) => [m.name, m.values?.[0]?.value ?? m.value ?? 0])
+        );
+      } catch { /* insights not available for this media type */ }
     }
   }
 
   if (!post) notFound();
 
   const thumb = post.thumbnail_url ?? post.media_url ?? post.image;
-  const caption = isFacebook ? post.caption : post.caption;
-  const likeCount = isFacebook ? post.like_count : post.like_count;
-  const commentsCount = isFacebook ? post.comments_count : post.comments_count;
-  const permalink = isFacebook ? post.permalink_url : post.permalink;
-  const timestamp = isFacebook ? post.timestamp : post.timestamp;
+  const caption = post.caption;
+  const likeCount = post.like_count;
+  const commentsCount = post.comments_count;
+  const permalink = isFacebook ? post.permalink_url : post.permalink ?? post.permalink_url;
+  const timestamp = post.timestamp;
 
   const formattedDate = timestamp
     ? new Date(timestamp).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
@@ -161,7 +171,7 @@ export default async function PostDetailPage({ params, searchParams }) {
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
               </svg>
             } />
-            {!isFacebook && !isLinkedIn && <>
+            {!isFacebook && !isLinkedIn && Object.keys(insights).length > 0 && <>
               <MetricRow label="Reach" value={insights.reach} icon="👁" />
               <MetricRow label="Impressions" value={insights.impressions} icon="📊" />
               <MetricRow label="Saved" value={insights.saved} icon="🔖" />

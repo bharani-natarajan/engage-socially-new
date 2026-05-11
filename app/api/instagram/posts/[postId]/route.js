@@ -1,26 +1,31 @@
 import { NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/tokens';
-import { getMediaById, getMediaInsights } from '@/lib/instagram';
+import { cookies } from 'next/headers';
+import { requireUnipileIgAuth } from '@/lib/tokens';
+import { getPostById, getPostComments, normalizeIgPost, normalizeComment } from '@/lib/unipile';
+import { getMediaInsights } from '@/lib/instagram';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(_req, { params }) {
-  const { tokens, error } = await requireAuth();
+  const { tokens, error } = await requireUnipileIgAuth();
   if (error) return error;
 
   const { postId } = await params;
 
   try {
-    const post = await getMediaById(postId, tokens.accessToken);
+    const raw = await getPostById(postId, tokens.accountId);
+    const post = normalizeIgPost(raw);
 
     let insights = null;
-    try {
-      const raw = await getMediaInsights(postId, tokens.accessToken, post.media_type);
-      insights = Object.fromEntries(
-        (raw.data ?? []).map((m) => [m.name, m.values?.[0]?.value ?? m.value ?? 0])
-      );
-    } catch {
-      // Insights not available for all media types
+    const store = await cookies();
+    const igToken = store.get('ig_access_token')?.value;
+    if (igToken) {
+      try {
+        const rawInsights = await getMediaInsights(postId, igToken, 'IMAGE');
+        insights = Object.fromEntries(
+          (rawInsights.data ?? []).map((m) => [m.name, m.values?.[0]?.value ?? m.value ?? 0])
+        );
+      } catch { /* insights not available */ }
     }
 
     return NextResponse.json({ ...post, insights });

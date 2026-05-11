@@ -1,18 +1,19 @@
 import { NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/tokens';
-import { getConversations } from '@/lib/instagram';
+import { requireUnipileIgAuth } from '@/lib/tokens';
+import { getChats, normalizeChat } from '@/lib/unipile';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const { tokens, error } = await requireAuth();
+  const { tokens, error } = await requireUnipileIgAuth();
   if (error) return error;
 
   try {
-    const data = await getConversations(tokens.userId, tokens.accessToken);
-    return NextResponse.json(data);
+    const result = await getChats(tokens.accountId);
+    const conversations = (result.items ?? result.data ?? []).map(normalizeChat);
+    return NextResponse.json({ data: conversations });
   } catch (err) {
-    console.error('[Conversations error]', err.message);
+    console.error('[IG conversations error]', err.message);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
