@@ -39,16 +39,48 @@ function timeAgo(ts) {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
+// Zoho Bigin logo mark
+function BiginLogo({ size = 14 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
+      <rect width="40" height="40" rx="8" fill="#E4261C"/>
+      <path d="M10 28V12h8c3.3 0 6 2.7 6 6s-2.7 6-6 6h-4v4H10zm4-8h4c1.1 0 2-.9 2-2s-.9-2-2-2h-4v4z" fill="white"/>
+      <circle cx="30" cy="26" r="4" fill="white"/>
+    </svg>
+  );
+}
+
+async function sendToBigin(lead) {
+  const res = await fetch('/api/bigin/contacts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ lead }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? 'Failed to send to Bigin');
+  return data;
+}
+
 export default function LeadsPage() {
   const [leads, setLeads] = useState([]);
   const [mounted, setMounted] = useState(false);
   const [intentFilter, setIntentFilter] = useState('All');
   const [platformFilter, setPlatformFilter] = useState('All');
   const [scanning, setScanning] = useState(false);
-  const [scanResult, setScanResult] = useState(null); // { added, scanned }
+  const [scanResult, setScanResult] = useState(null);
+  const [biginConnected, setBiginConnected] = useState(false);
+  const [biginSending, setBiginSending] = useState({}); // leadId → 'sending' | 'done' | 'error'
+  const [bulkSending, setBulkSending] = useState(false);
+  const [biginError, setBiginError] = useState('');
 
   useEffect(() => {
     setLeads(getLeads());
+    const match = document.cookie.match(/(?:^|;\s*)bigin_connected=([^;]*)/);
+    setBiginConnected(!!match);
+
+    const sp = new URLSearchParams(window.location.search);
+    if (sp.get('bigin_connected')) setBiginConnected(true);
+    if (sp.get('bigin_error')) setBiginError(`Bigin: ${sp.get('bigin_error')}`);
     setMounted(true);
   }, []);
 
@@ -78,6 +110,44 @@ export default function LeadsPage() {
     setLeads((prev) => prev.filter((l) => l.id !== id));
   }
 
+  async function handleSendToBigin(lead) {
+    setBiginSending((s) => ({ ...s, [lead.id]: 'sending' }));
+    setBiginError('');
+    try {
+      await sendToBigin(lead);
+      const updated = { ...lead, biginSentAt: new Date().toISOString() };
+      upsertLead(updated);
+      setLeads(getLeads());
+      setBiginSending((s) => ({ ...s, [lead.id]: 'done' }));
+    } catch (err) {
+      setBiginError(err.message);
+      setBiginSending((s) => ({ ...s, [lead.id]: 'error' }));
+    }
+  }
+
+  async function handleBulkSend() {
+    const unsent = leads.filter((l) => !l.biginSentAt);
+    if (!unsent.length) return;
+    setBulkSending(true);
+    setBiginError('');
+    let failed = 0;
+    for (const lead of unsent) {
+      setBiginSending((s) => ({ ...s, [lead.id]: 'sending' }));
+      try {
+        await sendToBigin(lead);
+        const updated = { ...lead, biginSentAt: new Date().toISOString() };
+        upsertLead(updated);
+        setBiginSending((s) => ({ ...s, [lead.id]: 'done' }));
+      } catch {
+        failed++;
+        setBiginSending((s) => ({ ...s, [lead.id]: 'error' }));
+      }
+    }
+    setLeads(getLeads());
+    setBulkSending(false);
+    if (failed) setBiginError(`${failed} lead${failed > 1 ? 's' : ''} failed to sync.`);
+  }
+
   if (!mounted) return null;
 
   const filtered = leads.filter((l) => {
@@ -86,11 +156,11 @@ export default function LeadsPage() {
     return true;
   });
 
-  const inquiryCount = leads.filter((l) => l.intent === 'Inquiry').length;
+  const inquiryCount  = leads.filter((l) => l.intent === 'Inquiry').length;
   const purchaseCount = leads.filter((l) => l.intent === 'Purchase Intent').length;
-  const igCount = leads.filter((l) => l.platform === 'instagram').length;
-  const fbCount = leads.filter((l) => l.platform === 'facebook').length;
-  const liCount = leads.filter((l) => l.platform === 'linkedin').length;
+  const igCount       = leads.filter((l) => l.platform === 'instagram').length;
+  const fbCount       = leads.filter((l) => l.platform === 'facebook').length;
+  const unsentCount   = leads.filter((l) => !l.biginSentAt).length;
 
   return (
     <div className="max-w-4xl mx-auto space-y-5">
@@ -123,7 +193,46 @@ export default function LeadsPage() {
         </div>
       </div>
 
-      {/* Scan result feedback */}
+      {/* Zoho Bigin connect / status bar */}
+      <div className="bg-lord-card rounded-2xl border border-lord-border px-5 py-4 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <BiginLogo size={28} />
+          <div>
+            <p className="text-sm font-semibold text-lord-text-main">Zoho Bigin</p>
+            <p className="text-xs text-lord-text-muted">
+              {biginConnected ? 'Connected — send leads directly to your CRM' : 'Connect to push leads into your Bigin CRM'}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {biginConnected && unsentCount > 0 && (
+            <button
+              onClick={handleBulkSend}
+              disabled={bulkSending}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#E4261C]/30 text-[#E4261C] text-[12px] font-semibold hover:bg-[#E4261C]/5 transition-colors disabled:opacity-50"
+            >
+              {bulkSending ? (
+                <svg className="animate-spin" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+              ) : (
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              )}
+              {bulkSending ? 'Syncing…' : `Sync all (${unsentCount})`}
+            </button>
+          )}
+          <a
+            href="/api/auth/bigin"
+            className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[12px] font-semibold transition-colors ${
+              biginConnected
+                ? 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                : 'bg-[#E4261C] text-white hover:bg-[#c41f16]'
+            }`}
+          >
+            {biginConnected ? 'Reconnect' : 'Connect Bigin'}
+          </a>
+        </div>
+      </div>
+
+      {/* Feedback banners */}
       {scanResult && (
         <div className={`px-4 py-3 rounded-xl border text-sm font-medium ${scanResult.error ? 'bg-red-50 border-red-200 text-red-600' : 'bg-green-50 border-green-200 text-green-700'}`}>
           {scanResult.error
@@ -131,14 +240,19 @@ export default function LeadsPage() {
             : `Scanned ${scanResult.scanned} comments — ${scanResult.added} lead${scanResult.added !== 1 ? 's' : ''} found`}
         </div>
       )}
+      {biginError && (
+        <div className="px-4 py-3 rounded-xl border bg-red-50 border-red-200 text-red-600 text-sm font-medium">
+          {biginError}
+        </div>
+      )}
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Inquiries',       value: inquiryCount, color: 'text-blue-600',   bg: 'bg-blue-50'   },
-          { label: 'Purchase Intent', value: purchaseCount, color: 'text-green-600', bg: 'bg-green-50'  },
+          { label: 'Inquiries',       value: inquiryCount,  color: 'text-blue-600',   bg: 'bg-blue-50'   },
+          { label: 'Purchase Intent', value: purchaseCount, color: 'text-green-600',  bg: 'bg-green-50'  },
           { label: 'From Instagram',  value: igCount,       color: 'text-purple-600', bg: 'bg-purple-50' },
-          { label: 'From Facebook',   value: fbCount,       color: 'text-blue-700',  bg: 'bg-blue-50'   },
+          { label: 'From Facebook',   value: fbCount,       color: 'text-blue-700',   bg: 'bg-blue-50'   },
         ].map((s) => (
           <div key={s.label} className={`rounded-2xl border border-lord-border p-4 ${s.bg}`}>
             <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
@@ -149,7 +263,6 @@ export default function LeadsPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2">
-        {/* Intent filter */}
         <div className="flex gap-1">
           {['All', 'Inquiry', 'Purchase Intent'].map((f) => (
             <button
@@ -165,10 +278,7 @@ export default function LeadsPage() {
             </button>
           ))}
         </div>
-
         <div className="w-px bg-lord-border mx-1" />
-
-        {/* Platform filter */}
         <div className="flex gap-1">
           {['All', 'Instagram', 'Facebook', 'LinkedIn'].map((f) => (
             <button
@@ -207,8 +317,11 @@ export default function LeadsPage() {
       ) : (
         <div className="bg-lord-card rounded-2xl border border-lord-border overflow-hidden">
           {filtered.map((lead, i) => {
-            const intentStyle = INTENT_STYLES[lead.intent] ?? INTENT_STYLES['Inquiry'];
+            const intentStyle   = INTENT_STYLES[lead.intent] ?? INTENT_STYLES['Inquiry'];
             const platformStyle = PLATFORM_STYLES[lead.platform] ?? PLATFORM_STYLES['instagram'];
+            const sendState     = biginSending[lead.id];
+            const alreadySent   = !!lead.biginSentAt;
+
             return (
               <div
                 key={lead.id}
@@ -226,6 +339,12 @@ export default function LeadsPage() {
                     )}
                     <Badge label={lead.intent} style={intentStyle} />
                     <Badge label={platformStyle.label} style={platformStyle} />
+                    {alreadySent && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-[#E4261C]/30 bg-[#E4261C]/5 text-[10px] font-semibold text-[#E4261C]">
+                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        In Bigin
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-lord-text-muted leading-relaxed line-clamp-2">
                     &ldquo;{lead.commentText}&rdquo;
@@ -237,11 +356,7 @@ export default function LeadsPage() {
                     >
                       {lead.postThumbnail && (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={lead.postThumbnail}
-                          alt=""
-                          className="w-8 h-8 rounded-lg object-cover flex-shrink-0 border border-lord-border"
-                        />
+                        <img src={lead.postThumbnail} alt="" className="w-8 h-8 rounded-lg object-cover flex-shrink-0 border border-lord-border" />
                       )}
                       <span className="text-[11px] text-lord-text-muted group-hover:text-lord-green transition-colors truncate max-w-[200px]">
                         {lead.postCaption ? lead.postCaption : 'View post'} →
@@ -250,8 +365,33 @@ export default function LeadsPage() {
                   )}
                 </div>
 
-                <div className="flex items-center gap-3 flex-shrink-0">
+                <div className="flex items-center gap-2 flex-shrink-0">
                   <span className="text-[11px] text-lord-text-muted">{timeAgo(lead.addedAt)}</span>
+
+                  {/* Send to Bigin */}
+                  {biginConnected && (
+                    <button
+                      onClick={() => !alreadySent && !sendState && handleSendToBigin(lead)}
+                      disabled={alreadySent || sendState === 'sending'}
+                      title={alreadySent ? 'Already in Bigin' : 'Send to Bigin'}
+                      className={`w-7 h-7 flex items-center justify-center rounded-full transition-colors ${
+                        alreadySent || sendState === 'done'
+                          ? 'text-[#E4261C] bg-[#E4261C]/10 cursor-default'
+                          : sendState === 'error'
+                          ? 'text-red-500 bg-red-50'
+                          : 'text-gray-300 hover:text-[#E4261C] hover:bg-[#E4261C]/10'
+                      }`}
+                    >
+                      {sendState === 'sending' ? (
+                        <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                      ) : alreadySent || sendState === 'done' ? (
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                      ) : (
+                        <BiginLogo size={14} />
+                      )}
+                    </button>
+                  )}
+
                   <button
                     onClick={() => handleRemove(lead.id)}
                     className="w-7 h-7 flex items-center justify-center rounded-full text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors"
