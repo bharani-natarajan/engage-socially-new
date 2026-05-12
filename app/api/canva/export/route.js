@@ -20,8 +20,9 @@ export async function POST(request) {
 
   try {
     const exportData = await startExport(accessToken, designId);
+    console.log('[Canva export started]', JSON.stringify(exportData));
     const jobId = exportData.job?.id ?? exportData.id;
-    if (!jobId) throw new Error('No export job ID returned from Canva');
+    if (!jobId) throw new Error(`No export job ID — Canva returned: ${JSON.stringify(exportData)}`);
 
     const url = await waitForExport(accessToken, jobId);
     return NextResponse.json({ url });
