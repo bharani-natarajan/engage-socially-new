@@ -21,6 +21,7 @@ function CanvaPickerModal({ onSelect, onClose }) {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
+  const [needsReauth, setNeedsReauth] = useState(false);
   const [exporting, setExporting] = useState(null); // designId being exported
 
   const fetchDesigns = useCallback(async (cont = null) => {
@@ -29,7 +30,7 @@ function CanvaPickerModal({ onSelect, onClose }) {
     const data = await res.json();
     if (!res.ok) {
       const err = new Error(data.error ?? 'Failed to load designs');
-      err.code = data.error;
+      err.needsReauth = res.status === 403 || data.error === 'canva_needs_reauth';
       throw err;
     }
     return data;
@@ -41,7 +42,10 @@ function CanvaPickerModal({ onSelect, onClose }) {
         setDesigns(data.items ?? []);
         setContinuation(data.continuation ?? null);
       })
-      .catch((err) => setError(err.code === 'canva_needs_reauth' ? 'canva_needs_reauth' : err.message))
+      .catch((err) => {
+        if (err.needsReauth) setNeedsReauth(true);
+        else setError(err.message);
+      })
       .finally(() => setLoading(false));
   }, [fetchDesigns]);
 
@@ -109,26 +113,26 @@ function CanvaPickerModal({ onSelect, onClose }) {
             </div>
           )}
 
-          {error && !loading && (
-            error === 'canva_needs_reauth' ? (
-              <div className="flex flex-col items-center justify-center py-16 gap-3">
-                <p className="text-sm font-semibold text-gray-700">Canva permissions updated</p>
-                <p className="text-xs text-gray-400 text-center max-w-xs">
-                  Your Canva connection needs to be refreshed to include the required permissions.
-                </p>
-                <a
-                  href="/api/auth/canva"
-                  className="mt-1 px-5 py-2 rounded-full text-sm font-semibold text-white transition-colors"
-                  style={{ backgroundColor: '#7d2ae8' }}
-                >
-                  Reconnect Canva
-                </a>
-              </div>
-            ) : (
-              <div className="p-4 rounded-2xl bg-red-50 border border-red-100 text-red-600 text-sm text-center">
-                {error}
-              </div>
-            )
+          {needsReauth && !loading && (
+            <div className="flex flex-col items-center justify-center py-16 gap-3">
+              <p className="text-sm font-semibold text-gray-700">Canva permissions updated</p>
+              <p className="text-xs text-gray-400 text-center max-w-xs">
+                Your Canva connection needs to be refreshed to include the required permissions.
+              </p>
+              <a
+                href="/api/auth/canva"
+                className="mt-1 px-5 py-2 rounded-full text-sm font-semibold text-white transition-colors"
+                style={{ backgroundColor: '#7d2ae8' }}
+              >
+                Reconnect Canva
+              </a>
+            </div>
+          )}
+
+          {error && !loading && !needsReauth && (
+            <div className="p-4 rounded-2xl bg-red-50 border border-red-100 text-red-600 text-sm text-center">
+              {error}
+            </div>
           )}
 
           {!loading && !error && designs.length === 0 && (
