@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 const STEPS = { idle: 'idle', uploading: 'uploading', publishing: 'publishing', done: 'done' };
@@ -12,6 +12,174 @@ const PLATFORM_OPTIONS = [
   { value: 'both',      label: 'Instagram + Facebook', color: 'bg-lord-green' },
   { value: 'all',       label: 'Instagram + Facebook + LinkedIn', color: 'bg-lord-green' },
 ];
+
+// ── Canva Design Picker Modal ─────────────────────────────────────────────────
+
+function CanvaPickerModal({ onSelect, onClose }) {
+  const [designs, setDesigns] = useState([]);
+  const [continuation, setContinuation] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState('');
+  const [exporting, setExporting] = useState(null); // designId being exported
+
+  const fetchDesigns = useCallback(async (cont = null) => {
+    const url = '/api/canva/designs' + (cont ? `?continuation=${encodeURIComponent(cont)}` : '');
+    const res = await fetch(url);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? 'Failed to load designs');
+    return data;
+  }, []);
+
+  useEffect(() => {
+    fetchDesigns()
+      .then((data) => {
+        setDesigns(data.items ?? []);
+        setContinuation(data.continuation ?? null);
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [fetchDesigns]);
+
+  async function loadMore() {
+    if (!continuation || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const data = await fetchDesigns(continuation);
+      setDesigns((prev) => [...prev, ...(data.items ?? [])]);
+      setContinuation(data.continuation ?? null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  async function selectDesign(design) {
+    setExporting(design.id);
+    try {
+      const res = await fetch('/api/canva/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ designId: design.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Export failed');
+      onSelect(data.url, design.title ?? 'Canva design');
+    } catch (err) {
+      setError(err.message);
+      setExporting(null);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-[28px] shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#7d2ae8' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>
+              </svg>
+            </div>
+            <h2 className="text-sm font-bold text-gray-900">Pick from Canva</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {loading && (
+            <div className="flex flex-col items-center justify-center py-16 gap-3">
+              <div className="w-6 h-6 border-2 border-[#7d2ae8] border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm text-gray-500">Loading your designs…</p>
+            </div>
+          )}
+
+          {error && !loading && (
+            <div className="p-4 rounded-2xl bg-red-50 border border-red-100 text-red-600 text-sm text-center">
+              {error}
+            </div>
+          )}
+
+          {!loading && !error && designs.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-16 gap-2">
+              <p className="text-sm font-semibold text-gray-700">No designs found</p>
+              <p className="text-xs text-gray-400">Create a design in Canva and it will appear here.</p>
+            </div>
+          )}
+
+          {!loading && designs.length > 0 && (
+            <>
+              <div className="grid grid-cols-3 gap-3">
+                {designs.map((design) => {
+                  const isExporting = exporting === design.id;
+                  return (
+                    <button
+                      key={design.id}
+                      onClick={() => !exporting && selectDesign(design)}
+                      disabled={!!exporting}
+                      className="group relative flex flex-col rounded-2xl overflow-hidden border border-gray-100 hover:border-[#7d2ae8]/40 hover:shadow-md transition-all disabled:opacity-60 text-left"
+                    >
+                      <div className="aspect-video bg-gray-50 overflow-hidden relative">
+                        {design.thumbnail?.url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={design.thumbnail.url}
+                            alt={design.title ?? 'Design'}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-300">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                          </div>
+                        )}
+                        {isExporting && (
+                          <div className="absolute inset-0 bg-white/80 flex flex-col items-center justify-center gap-1.5">
+                            <div className="w-5 h-5 border-2 border-[#7d2ae8] border-t-transparent rounded-full animate-spin" />
+                            <span className="text-[10px] text-[#7d2ae8] font-semibold">Exporting…</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="px-2.5 py-2">
+                        <p className="text-[11px] font-semibold text-gray-700 truncate">
+                          {design.title ?? 'Untitled'}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {continuation && (
+                <div className="flex justify-center mt-4">
+                  <button
+                    onClick={loadMore}
+                    disabled={loadingMore}
+                    className="px-5 py-2 rounded-full border border-gray-200 text-sm text-gray-600 hover:border-[#7d2ae8]/40 hover:text-[#7d2ae8] transition-colors disabled:opacity-50"
+                  >
+                    {loadingMore ? 'Loading…' : 'Load more'}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function CreatePostPage() {
   const router = useRouter();
@@ -26,10 +194,19 @@ export default function CreatePostPage() {
   const [statusMsg, setStatusMsg] = useState('');
   const [error, setError] = useState('');
   const [dragging, setDragging] = useState(false);
+  const [canvaConnected, setCanvaConnected] = useState(false);
+  const [showCanvaPicker, setShowCanvaPicker] = useState(false);
 
   useEffect(() => {
     const url = searchParams.get('imageUrl');
     if (url) { setAiImageUrl(url); setPreview(url); }
+
+    if (searchParams.get('canva_connected')) setCanvaConnected(true);
+    if (searchParams.get('canva_error')) setError(`Canva: ${searchParams.get('canva_error')}`);
+
+    // Check cookie
+    const match = document.cookie.match(/(?:^|;\s*)canva_connected=([^;]*)/);
+    if (match) setCanvaConnected(true);
   }, [searchParams]);
 
   useEffect(() => {
@@ -58,6 +235,7 @@ export default function CreatePostPage() {
     if (!f.type.startsWith('image/')) { setError('Only image files are supported.'); return; }
     setError('');
     setFile(f);
+    setAiImageUrl(null);
   }
 
   function onDrop(e) {
@@ -70,6 +248,22 @@ export default function CreatePostPage() {
     e.preventDefault();
     setFile(null); setPreview(null); setAiImageUrl(null);
     if (fileInput.current) fileInput.current.value = '';
+  }
+
+  function handleCanvaSelect(url) {
+    setAiImageUrl(url);
+    setPreview(url);
+    setFile(null);
+    setShowCanvaPicker(false);
+    setError('');
+  }
+
+  function openCanva() {
+    if (canvaConnected) {
+      setShowCanvaPicker(true);
+    } else {
+      window.location.href = '/api/auth/canva';
+    }
   }
 
   async function publish() {
@@ -186,12 +380,49 @@ export default function CreatePostPage() {
         </div>
       ) : (
         <div className="space-y-5">
-
-
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
             {/* Left: Image upload */}
             <div className="bg-lord-card rounded-[32px] shadow-sm p-6 space-y-3">
-              <label className="block text-sm font-semibold text-lord-text-main">Image</label>
+              <div className="flex items-center justify-between">
+                <label className="block text-sm font-semibold text-lord-text-main">Image</label>
+                {/* Source buttons */}
+                <div className="flex items-center gap-1.5">
+                  <label
+                    htmlFor="file-upload"
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[11px] font-semibold cursor-pointer transition-colors ${
+                      isBusy ? 'opacity-50 pointer-events-none' : 'border-gray-200 text-gray-500 hover:border-lord-green hover:text-lord-green'
+                    }`}
+                  >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                    Upload
+                  </label>
+                  <button
+                    onClick={openCanva}
+                    disabled={isBusy}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-gray-200 text-[11px] font-semibold transition-colors hover:border-[#7d2ae8]/60 hover:text-[#7d2ae8] disabled:opacity-50"
+                  >
+                    {/* Canva logo mark */}
+                    <svg width="10" height="10" viewBox="0 0 30 30" fill="none">
+                      <circle cx="15" cy="15" r="15" fill="#7d2ae8"/>
+                      <path d="M19.5 10.5C18.1 9.1 16.1 8.5 14 9c-3.3.8-5.5 4-5 7.4.4 2.7 2.4 4.9 5 5.5 1 .2 2 .2 3-.1v-2c-.8.3-1.7.4-2.6.2-1.8-.4-3.2-1.8-3.5-3.6-.4-2.4 1.1-4.7 3.4-5.3 1.4-.4 2.8 0 3.8 1l1.4-2.1z" fill="white"/>
+                    </svg>
+                    {canvaConnected ? 'From Canva' : 'Connect Canva'}
+                  </button>
+                  <a
+                    href="/create/ai"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-gray-200 text-[11px] font-semibold transition-colors hover:border-lord-green hover:text-lord-green"
+                  >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                    </svg>
+                    AI
+                  </a>
+                </div>
+              </div>
+
               <input ref={fileInput} id="file-upload" type="file" accept="image/jpeg,image/png,image/webp" disabled={isBusy} className="hidden" />
 
               {preview ? (
@@ -216,7 +447,7 @@ export default function CreatePostPage() {
                   </div>
                   <div className="text-center">
                     <p className="text-sm font-semibold text-lord-text-main">Drop image here</p>
-                    <p className="text-xs text-lord-text-muted mt-0.5">or click to browse</p>
+                    <p className="text-xs text-lord-text-muted mt-0.5">or click to browse · or use the buttons above</p>
                   </div>
                   <p className="text-xs text-lord-text-muted">JPEG · PNG · WebP</p>
                 </label>
@@ -226,7 +457,6 @@ export default function CreatePostPage() {
             {/* Right: Caption + actions */}
             <div className="bg-lord-card rounded-[32px] shadow-sm p-6 flex flex-col space-y-5">
 
-              {/* Publish to dropdown */}
               <div className="space-y-1.5">
                 <label className="block text-sm font-semibold text-lord-text-main">Publish to</label>
                 <div className="relative">
@@ -281,6 +511,13 @@ export default function CreatePostPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {showCanvaPicker && (
+        <CanvaPickerModal
+          onSelect={handleCanvaSelect}
+          onClose={() => setShowCanvaPicker(false)}
+        />
       )}
     </div>
   );
