@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { requireUnipileFbAuth } from '@/lib/tokens';
-import { startNewChat } from '@/lib/unipile';
+import { requireFbAuth } from '@/lib/tokens';
+import { sendMessage } from '@/lib/facebook';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
-  const { tokens, error } = await requireUnipileFbAuth();
+  const { tokens, error } = await requireFbAuth();
   if (error) return error;
 
   try {
@@ -13,7 +13,7 @@ export async function POST(request) {
     if (!recipientId || !message) {
       return NextResponse.json({ error: 'recipientId and message required' }, { status: 400 });
     }
-    const data = await startNewChat(tokens.accountId, [recipientId], message);
+    const data = await sendMessage(tokens.pageId, recipientId, message, tokens.pageToken);
     return NextResponse.json(data);
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });

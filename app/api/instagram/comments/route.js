@@ -1,36 +1,40 @@
 import { NextResponse } from 'next/server';
-import { requireUnipileIgAuth } from '@/lib/tokens';
-import { getPostComments, replyToComment, normalizeComment } from '@/lib/unipile';
+import { requireAuth } from '@/lib/tokens';
+import { getComments, replyToComment } from '@/lib/instagram';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
-  const { tokens, error } = await requireUnipileIgAuth();
+  const { tokens, error } = await requireAuth();
   if (error) return error;
 
   const mediaId = new URL(request.url).searchParams.get('mediaId');
-  if (!mediaId) return NextResponse.json({ error: 'mediaId is required' }, { status: 400 });
+  if (!mediaId) {
+    return NextResponse.json({ error: 'mediaId is required' }, { status: 400 });
+  }
 
   try {
-    const result = await getPostComments(mediaId, tokens.accountId);
-    const comments = (result.items ?? result.data ?? []).map(normalizeComment);
-    return NextResponse.json({ data: comments });
+    const data = await getComments(mediaId, tokens.accessToken);
+    return NextResponse.json(data);
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
 
 export async function POST(request) {
-  const { tokens, error } = await requireUnipileIgAuth();
+  const { tokens, error } = await requireAuth();
   if (error) return error;
 
-  const { commentId, message, postId } = await request.json();
-  if (!message?.trim()) {
-    return NextResponse.json({ error: 'message is required' }, { status: 400 });
+  const { commentId, message } = await request.json();
+  if (!commentId || !message?.trim()) {
+    return NextResponse.json(
+      { error: 'commentId and message are required' },
+      { status: 400 }
+    );
   }
 
   try {
-    const data = await replyToComment(postId, commentId, message.trim(), tokens.accountId);
+    const data = await replyToComment(commentId, message.trim(), tokens.accessToken);
     return NextResponse.json(data);
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });

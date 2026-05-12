@@ -1,17 +1,22 @@
 import { NextResponse } from 'next/server';
-import { requireUnipileFbAuth } from '@/lib/tokens';
-import { getChatMessages, normalizeChatMessage } from '@/lib/unipile';
+import { requireFbAuth } from '@/lib/tokens';
+import { getConversationMessages } from '@/lib/facebook';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(_request, { params }) {
-  const { tokens, error } = await requireUnipileFbAuth();
+export async function GET(request, { params }) {
+  const { tokens, error } = await requireFbAuth();
   if (error) return error;
 
   try {
     const { id } = await params;
-    const result = await getChatMessages(id);
-    const messages = (result.items ?? result.data ?? []).map(normalizeChatMessage);
+    const data = await getConversationMessages(id, tokens.pageToken);
+    const messages = (data.data ?? []).map((m) => ({
+      id: m.id,
+      text: m.message ?? '',
+      from: { username: m.from?.name ?? 'Unknown', id: m.from?.id },
+      timestamp: m.created_time,
+    }));
     return NextResponse.json({ data: messages });
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });

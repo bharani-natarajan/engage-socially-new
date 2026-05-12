@@ -1,24 +1,14 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { requireAuth } from '@/lib/tokens';
 
 export const dynamic = 'force-dynamic';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-async function isAnyPlatformConnected() {
-  const store = await cookies();
-  return !!(
-    store.get('unipile_ig_account_id')?.value ||
-    store.get('unipile_fb_account_id')?.value ||
-    store.get('unipile_account_id')?.value
-  );
-}
-
 export async function POST(request) {
-  if (!(await isAnyPlatformConnected())) {
-    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-  }
+  const { error } = await requireAuth();
+  if (error) return error;
 
   try {
     const { commentText, username, postCaption, brandContext, tone, avoid } = await request.json();
@@ -40,7 +30,7 @@ export async function POST(request) {
     }
 
     if (postCaption?.trim()) {
-      parts.push(`The comment is on a post with this caption: "${postCaption.trim()}"`);
+      parts.push(`The comment is on an Instagram post with this caption: "${postCaption.trim()}"`);
     }
 
     parts.push(`A user named @${username ?? 'someone'} left this comment: "${commentText}"`);

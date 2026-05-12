@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server';
-import { requireUnipileIgAuth } from '@/lib/tokens';
-import { getAccount } from '@/lib/unipile';
+import { requireAuth } from '@/lib/tokens';
+import { getAccount } from '@/lib/instagram';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const { tokens, error } = await requireUnipileIgAuth();
+  const { tokens, error } = await requireAuth();
   if (error) return error;
 
   try {
-    const data = await getAccount(tokens.accountId);
+    const data = await getAccount(tokens.userId, tokens.accessToken);
     return NextResponse.json(data);
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });

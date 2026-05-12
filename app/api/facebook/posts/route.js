@@ -1,16 +1,16 @@
 import { NextResponse } from 'next/server';
-import { requireUnipileFbAuth } from '@/lib/tokens';
-import { getPosts, normalizeFbPost } from '@/lib/unipile';
+import { requireFbAuth } from '@/lib/tokens';
+import { getPagePosts, normalizePost } from '@/lib/facebook';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const { tokens, error } = await requireUnipileFbAuth();
+  const { tokens, error } = await requireFbAuth();
   if (error) return error;
 
   try {
-    const result = await getPosts(tokens.accountId);
-    const posts = (result.items ?? result.data ?? []).map(normalizeFbPost);
+    const data = await getPagePosts(tokens.pageId, tokens.pageToken);
+    const posts = (data.data ?? []).map(normalizePost);
     return NextResponse.json({ data: posts });
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });

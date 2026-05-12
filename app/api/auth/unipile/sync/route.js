@@ -38,16 +38,6 @@ export async function GET() {
         store.set('unipile_name', name, { ...base, httpOnly: false });
         if (isStopped) stopped.linkedin = { id: account.id, name };
         else connected.linkedin = name;
-      } else if (provider === 'INSTAGRAM') {
-        store.set('unipile_ig_account_id', account.id, base);
-        store.set('unipile_ig_name', name, { ...base, httpOnly: false });
-        if (isStopped) stopped.instagram = { id: account.id, name };
-        else connected.instagram = name;
-      } else if (provider === 'FACEBOOK') {
-        store.set('unipile_fb_account_id', account.id, base);
-        store.set('unipile_fb_name', name, { ...base, httpOnly: false });
-        if (isStopped) stopped.facebook = { id: account.id, name };
-        else connected.facebook = name;
       }
     }
 

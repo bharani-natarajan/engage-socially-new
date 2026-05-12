@@ -1,23 +1,31 @@
 import { NextResponse } from 'next/server';
-import { requireUnipileIgAuth } from '@/lib/tokens';
-import { startNewChat } from '@/lib/unipile';
+import { requireAuth } from '@/lib/tokens';
+import { sendDirectMessage } from '@/lib/instagram';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
-  const { tokens, error } = await requireUnipileIgAuth();
+  const { tokens, error } = await requireAuth();
   if (error) return error;
 
   const { recipientId, message } = await request.json();
   if (!recipientId || !message?.trim()) {
-    return NextResponse.json({ error: 'recipientId and message are required' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'recipientId and message are required' },
+      { status: 400 }
+    );
   }
 
   try {
-    const data = await startNewChat(tokens.accountId, [recipientId], message.trim());
+    const data = await sendDirectMessage(
+      tokens.userId,
+      recipientId,
+      message.trim(),
+      tokens.accessToken
+    );
     return NextResponse.json(data);
   } catch (err) {
-    console.error('[IG DM error]', err.message);
+    console.error('[DM error]', err.message);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

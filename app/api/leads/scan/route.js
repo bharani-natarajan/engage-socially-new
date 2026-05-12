@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { getPosts, getPostComments, normalizeIgPost, normalizeFbPost, normalizeComment, normalizeFbComment } from '@/lib/unipile';
+import { getMedia, getComments } from '@/lib/instagram';
+import { getPagePosts, getPostComments, normalizeComment as normalizeFbComment } from '@/lib/facebook';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -36,23 +37,26 @@ No markdown, no explanation.`;
 
 export async function GET() {
   const store = await cookies();
-  const igAccountId = store.get('unipile_ig_account_id')?.value;
-  const fbAccountId = store.get('unipile_fb_account_id')?.value;
+  const igToken = store.get('ig_access_token')?.value;
+  const igUserId = store.get('ig_user_id')?.value;
+  const fbPageToken = store.get('fb_page_token')?.value;
+  const fbPageId = store.get('fb_page_id')?.value;
 
-  if (!igAccountId && !fbAccountId) {
+  if (!igToken && !fbPageToken) {
     return NextResponse.json({ error: 'No connected platforms' }, { status: 401 });
   }
 
-  const allComments = [];
+  const allComments = []; // { id, text, username, from, platform, postCaption }
 
-  if (igAccountId) {
+  // Fetch Instagram comments
+  if (igToken && igUserId) {
     try {
-      const postsResult = await getPosts(igAccountId);
-      const posts = (postsResult.items ?? postsResult.data ?? []).slice(0, 10).map(normalizeIgPost);
+      const mediaData = await getMedia(igUserId, igToken);
+      const posts = (mediaData.data ?? []).slice(0, 10);
       const results = await Promise.allSettled(
         posts.map((p) =>
-          getPostComments(p.id, igAccountId).then((r) =>
-            (r.items ?? r.data ?? []).map(normalizeComment).map((c) => ({
+          getComments(p.id, igToken).then((r) =>
+            (r.data ?? []).map((c) => ({
               id: c.id,
               text: c.text,
               username: c.username ?? '',
@@ -65,31 +69,36 @@ export async function GET() {
           )
         )
       );
-      results.forEach((r) => { if (r.status === 'fulfilled') allComments.push(...r.value); });
+      results.forEach((r) => {
+        if (r.status === 'fulfilled') allComments.push(...r.value);
+      });
     } catch { /* skip */ }
   }
 
-  if (fbAccountId) {
+  // Fetch Facebook comments
+  if (fbPageToken && fbPageId) {
     try {
-      const postsResult = await getPosts(fbAccountId);
-      const posts = (postsResult.items ?? postsResult.data ?? []).slice(0, 10).map(normalizeFbPost);
+      const postsData = await getPagePosts(fbPageId, fbPageToken);
+      const posts = (postsData.data ?? []).slice(0, 10);
       const results = await Promise.allSettled(
         posts.map((p) =>
-          getPostComments(p.id, fbAccountId).then((r) =>
-            (r.items ?? r.data ?? []).map(normalizeFbComment).map((c) => ({
+          getPostComments(p.id, fbPageToken).then((r) =>
+            (r.data ?? []).map(normalizeFbComment).map((c) => ({
               id: c.id,
               text: c.text,
               username: c.username ?? '',
               from: c.from ?? {},
               platform: 'facebook',
               postId: p.id,
-              postCaption: p.caption ?? '',
-              postThumbnail: p.media_url ?? null,
+              postCaption: p.message ?? p.story ?? '',
+              postThumbnail: p.full_picture ?? p.picture ?? null,
             }))
           )
         )
       );
-      results.forEach((r) => { if (r.status === 'fulfilled') allComments.push(...r.value); });
+      results.forEach((r) => {
+        if (r.status === 'fulfilled') allComments.push(...r.value);
+      });
     } catch { /* skip */ }
   }
 
@@ -97,6 +106,7 @@ export async function GET() {
     return NextResponse.json({ leads: [] });
   }
 
+  // Classify in batches of 50
   const BATCH = 50;
   const intentMap = {};
   for (let i = 0; i < allComments.length; i += BATCH) {
@@ -107,6 +117,7 @@ export async function GET() {
     } catch { /* skip failed batches */ }
   }
 
+  // Build leads for qualifying comments
   const leads = [];
   const seen = new Set();
 
@@ -116,7 +127,7 @@ export async function GET() {
 
     const userId = comment.from?.id || comment.username;
     const leadId = `${comment.platform}_${userId}`;
-    if (seen.has(leadId)) continue;
+    if (seen.has(leadId)) continue; // deduplicate: keep first occurrence
     seen.add(leadId);
 
     leads.push({

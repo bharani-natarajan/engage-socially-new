@@ -1,21 +1,23 @@
 import { NextResponse } from 'next/server';
-import { requireUnipileFbAuth } from '@/lib/tokens';
-import { getPosts, getPostComments, normalizeFbPost, normalizeFbComment } from '@/lib/unipile';
+import { requireFbAuth } from '@/lib/tokens';
+import { getPagePosts, getPostComments, normalizePost, normalizeComment } from '@/lib/facebook';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const { tokens, error } = await requireUnipileFbAuth();
+  const { tokens, error } = await requireFbAuth();
   if (error) return error;
 
   try {
-    const postsResult = await getPosts(tokens.accountId);
-    const posts = (postsResult.items ?? postsResult.data ?? []).map(normalizeFbPost);
+    const postsData = await getPagePosts(tokens.pageId, tokens.pageToken);
+    const rawPosts = postsData.data ?? [];
+    const posts = rawPosts.map(normalizePost);
 
     const totalPosts = posts.length;
     const totalLikes = posts.reduce((s, p) => s + (p.like_count ?? 0), 0);
     const totalComments = posts.reduce((s, p) => s + (p.comments_count ?? 0), 0);
 
+    // Last 10 posts for bar chart
     const last10 = posts.slice(0, 10).map((p) => ({
       id: p.id,
       caption: p.caption,
@@ -25,6 +27,7 @@ export async function GET() {
 
     const avgCommentsPerPost = totalPosts > 0 ? Math.round((totalComments / totalPosts) * 10) / 10 : 0;
 
+    // Fetch comments from last 3 posts to compute replied/unanswered + top commenters
     const postsToCheck = posts.slice(0, 3);
     let repliedCount = 0;
     let unansweredCount = 0;
@@ -34,8 +37,8 @@ export async function GET() {
     await Promise.all(
       postsToCheck.map(async (post) => {
         try {
-          const result = await getPostComments(post.id, tokens.accountId);
-          const comments = (result.items ?? result.data ?? []).map(normalizeFbComment);
+          const commentsData = await getPostComments(post.id, tokens.pageToken);
+          const comments = (commentsData.data ?? []).map(normalizeComment);
           for (const c of comments) {
             const hasReply = (c.replies?.data?.length ?? 0) > 0;
             if (hasReply) {
@@ -56,18 +59,23 @@ export async function GET() {
               commenterMap[c.username] = (commenterMap[c.username] ?? 0) + 1;
             }
           }
-        } catch { /* skip */ }
+        } catch {
+          // skip posts with inaccessible comments
+        }
       })
     );
 
     const checkedTotal = repliedCount + unansweredCount;
+
     const topCommenters = Object.entries(commenterMap)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
       .map(([username, count]) => ({ username, count }));
 
+    // Unique commenters count
     const uniqueCommenters = Object.keys(commenterMap).length;
 
+    // Latest post preview — same shape as Instagram dashboard for UI compatibility
     const latestWithMedia = posts.find((p) => p.media_url) ?? posts[0];
     const latestPostPreview = latestWithMedia
       ? {
@@ -94,7 +102,7 @@ export async function GET() {
       latestPostPreview,
     });
   } catch (err) {
-    console.error('[FB dashboard error]', err.message);
+    console.error('[Facebook dashboard error]', err.message);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
