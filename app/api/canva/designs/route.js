@@ -38,9 +38,13 @@ export async function GET(request) {
     const data = await listDesigns(accessToken, continuation);
     return NextResponse.json(data);
   } catch (err) {
-    if (err.message?.includes('401') || err.message?.toLowerCase().includes('unauthorized')) {
+    const msg = err.message ?? '';
+    if (msg.includes('401') || msg.toLowerCase().includes('unauthorized')) {
       return NextResponse.json({ error: 'canva_not_connected' }, { status: 401 });
     }
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    if (msg.toLowerCase().includes('scope') || msg.toLowerCase().includes('forbidden') || msg.includes('403')) {
+      return NextResponse.json({ error: 'canva_needs_reauth' }, { status: 403 });
+    }
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

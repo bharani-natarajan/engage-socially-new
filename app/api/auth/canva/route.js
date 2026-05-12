@@ -28,6 +28,10 @@ export async function GET() {
   };
 
   const store = await cookies();
+  // Clear any stale tokens so the callback stores fresh ones
+  store.delete('canva_access_token');
+  store.delete('canva_refresh_token');
+  store.delete('canva_connected');
   store.set('canva_pkce_verifier', verifier, cookieBase);
   store.set('canva_oauth_state', state, cookieBase);
 
