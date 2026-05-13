@@ -75,12 +75,9 @@ export default function LeadsPage() {
 
   useEffect(() => {
     setLeads(getLeads());
-    const match = document.cookie.match(/(?:^|;\s*)bigin_connected=([^;]*)/);
-    setBiginConnected(!!match);
-
     const sp = new URLSearchParams(window.location.search);
-    if (sp.get('bigin_connected')) setBiginConnected(true);
     if (sp.get('bigin_error')) setBiginError(`Bigin: ${sp.get('bigin_error')}`);
+    fetch('/api/bigin/status').then(r => r.json()).then(d => setBiginConnected(!!d.connected)).catch(() => {});
     setMounted(true);
   }, []);
 
@@ -219,16 +216,14 @@ export default function LeadsPage() {
               {bulkSending ? 'Syncing…' : `Sync all (${unsentCount})`}
             </button>
           )}
-          <a
-            href="/api/auth/bigin"
-            className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[12px] font-semibold transition-colors ${
-              biginConnected
-                ? 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                : 'bg-[#E4261C] text-white hover:bg-[#c41f16]'
-            }`}
-          >
-            {biginConnected ? 'Reconnect' : 'Connect Bigin'}
-          </a>
+          {!biginConnected && (
+            <a
+              href="/api/auth/bigin"
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[12px] font-semibold transition-colors bg-[#E4261C] text-white hover:bg-[#c41f16]"
+            >
+              Connect Bigin
+            </a>
+          )}
         </div>
       </div>
 
