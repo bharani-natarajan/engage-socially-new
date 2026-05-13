@@ -122,13 +122,13 @@ export default function LeadsPage() {
     }
   }
 
-  async function handleBulkSend() {
-    const unsent = leads.filter((l) => !l.biginSentAt);
-    if (!unsent.length) return;
+  async function handleBulkSend(all = false) {
+    const targets = all ? leads : leads.filter((l) => !l.biginSentAt);
+    if (!targets.length) return;
     setBulkSending(true);
     setBiginError('');
     let failed = 0;
-    for (const lead of unsent) {
+    for (const lead of targets) {
       setBiginSending((s) => ({ ...s, [lead.id]: 'sending' }));
       try {
         await sendToBigin(lead);
@@ -202,19 +202,35 @@ export default function LeadsPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          {biginConnected && unsentCount > 0 && (
-            <button
-              onClick={handleBulkSend}
-              disabled={bulkSending}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#E4261C]/30 text-[#E4261C] text-[12px] font-semibold hover:bg-[#E4261C]/5 transition-colors disabled:opacity-50"
-            >
-              {bulkSending ? (
-                <svg className="animate-spin" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-              ) : (
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          {biginConnected && leads.length > 0 && (
+            <div className="flex items-center gap-2">
+              {unsentCount > 0 && (
+                <button
+                  onClick={() => handleBulkSend(false)}
+                  disabled={bulkSending}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#E4261C]/30 text-[#E4261C] text-[12px] font-semibold hover:bg-[#E4261C]/5 transition-colors disabled:opacity-50"
+                >
+                  {bulkSending ? (
+                    <svg className="animate-spin" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                  ) : (
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                  )}
+                  {bulkSending ? 'Syncing…' : `Sync new (${unsentCount})`}
+                </button>
               )}
-              {bulkSending ? 'Syncing…' : `Sync all (${unsentCount})`}
-            </button>
+              <button
+                onClick={() => handleBulkSend(true)}
+                disabled={bulkSending}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 text-gray-500 text-[12px] font-semibold hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                {bulkSending ? (
+                  <svg className="animate-spin" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                ) : (
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
+                )}
+                {bulkSending ? 'Syncing…' : 'Resend all'}
+              </button>
+            </div>
           )}
           {!biginConnected && (
             <a
@@ -366,21 +382,24 @@ export default function LeadsPage() {
                   {/* Send to Bigin */}
                   {biginConnected && (
                     <button
-                      onClick={() => !alreadySent && !sendState && handleSendToBigin(lead)}
-                      disabled={alreadySent || sendState === 'sending'}
-                      title={alreadySent ? 'Already in Bigin' : 'Send to Bigin'}
-                      className={`w-7 h-7 flex items-center justify-center rounded-full transition-colors ${
-                        alreadySent || sendState === 'done'
-                          ? 'text-[#E4261C] bg-[#E4261C]/10 cursor-default'
-                          : sendState === 'error'
-                          ? 'text-red-500 bg-red-50'
+                      onClick={() => sendState !== 'sending' && handleSendToBigin(lead)}
+                      disabled={sendState === 'sending'}
+                      title={alreadySent ? 'Resend to Bigin' : 'Send to Bigin'}
+                      className={`w-7 h-7 group flex items-center justify-center rounded-full transition-colors ${
+                        sendState === 'error'
+                          ? 'text-red-500 bg-red-50 hover:bg-red-100'
+                          : alreadySent || sendState === 'done'
+                          ? 'text-[#E4261C] bg-[#E4261C]/10 hover:bg-[#E4261C]/20'
                           : 'text-gray-300 hover:text-[#E4261C] hover:bg-[#E4261C]/10'
                       }`}
                     >
                       {sendState === 'sending' ? (
                         <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
                       ) : alreadySent || sendState === 'done' ? (
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        <>
+                          <svg className="group-hover:hidden" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                          <svg className="hidden group-hover:block" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
+                        </>
                       ) : (
                         <BiginLogo size={14} />
                       )}
