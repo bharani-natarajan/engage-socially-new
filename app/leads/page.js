@@ -57,7 +57,11 @@ async function sendToBigin(lead) {
     body: JSON.stringify({ lead }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error ?? 'Failed to send to Bigin');
+  if (!res.ok) {
+    const err = new Error(data.error ?? 'Failed to send to Bigin');
+    err.needsReauth = res.status === 401 || res.status === 403 || data.error === 'bigin_needs_reauth' || data.error === 'bigin_not_connected';
+    throw err;
+  }
   return data;
 }
 
@@ -69,6 +73,7 @@ export default function LeadsPage() {
   const [scanning, setScanning] = useState(false);
   const [scanResult, setScanResult] = useState(null);
   const [biginConnected, setBiginConnected] = useState(false);
+  const [biginNeedsReauth, setBiginNeedsReauth] = useState(false);
   const [biginSending, setBiginSending] = useState({}); // leadId → 'sending' | 'done' | 'error'
   const [bulkSending, setBulkSending] = useState(false);
   const [biginError, setBiginError] = useState('');
@@ -117,7 +122,8 @@ export default function LeadsPage() {
       setLeads(getLeads());
       setBiginSending((s) => ({ ...s, [lead.id]: 'done' }));
     } catch (err) {
-      setBiginError(err.message);
+      if (err.needsReauth) { setBiginNeedsReauth(true); setBiginConnected(false); }
+      else setBiginError(err.message);
       setBiginSending((s) => ({ ...s, [lead.id]: 'error' }));
     }
   }
@@ -135,14 +141,15 @@ export default function LeadsPage() {
         const updated = { ...lead, biginSentAt: new Date().toISOString() };
         upsertLead(updated);
         setBiginSending((s) => ({ ...s, [lead.id]: 'done' }));
-      } catch {
+      } catch (err) {
         failed++;
+        if (err.needsReauth) { setBiginNeedsReauth(true); setBiginConnected(false); break; }
         setBiginSending((s) => ({ ...s, [lead.id]: 'error' }));
       }
     }
     setLeads(getLeads());
     setBulkSending(false);
-    if (failed) setBiginError(`${failed} lead${failed > 1 ? 's' : ''} failed to sync.`);
+    if (failed && !biginNeedsReauth) setBiginError(`${failed} lead${failed > 1 ? 's' : ''} failed to sync.`);
   }
 
   if (!mounted) return null;
@@ -237,7 +244,7 @@ export default function LeadsPage() {
               href="/api/auth/bigin"
               className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[12px] font-semibold transition-colors bg-[#E4261C] text-white hover:bg-[#c41f16]"
             >
-              Connect Bigin
+              {biginNeedsReauth ? 'Reconnect Bigin' : 'Connect Bigin'}
             </a>
           )}
         </div>

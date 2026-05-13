@@ -7,11 +7,12 @@ export const dynamic = 'force-dynamic';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
 
 function isTokenError(msg) {
+  if (/scope/i.test(msg ?? '')) return false;
   return /invalid.*(oauth|token)|token.*(invalid|expired)/i.test(msg ?? '');
 }
 
 async function freshAccessToken(store) {
-  const refresh = store.get('bigin_refresh_token')?.value ?? process.env.ZOHO_REFRESH_TOKEN;
+  const refresh = store.get('bigin_refresh_token')?.value;
   if (!refresh) return null;
   const tokens = await refreshAccessToken(refresh);
   const isHttps = APP_URL?.startsWith('https');
@@ -54,9 +55,15 @@ export async function POST(request) {
     if (good) return NextResponse.json(good);
     return NextResponse.json({ error: result?.data?.[0]?.message ?? 'Bigin error' }, { status: 500 });
   } catch (err) {
-    if (!isTokenError(err.message)) {
-      console.error('[Bigin contact error]', err.message);
-      return NextResponse.json({ error: err.message }, { status: 500 });
+    const msg = err.message ?? '';
+
+    if (/scope/i.test(msg)) {
+      return NextResponse.json({ error: 'bigin_needs_reauth' }, { status: 403 });
+    }
+
+    if (!isTokenError(msg)) {
+      console.error('[Bigin contact error]', msg);
+      return NextResponse.json({ error: msg }, { status: 500 });
     }
 
     // Token expired — clear cached token, refresh, retry once
@@ -70,8 +77,10 @@ export async function POST(request) {
       if (good) return NextResponse.json(good);
       return NextResponse.json({ error: retry?.data?.[0]?.message ?? 'Bigin error' }, { status: 500 });
     } catch (retryErr) {
-      console.error('[Bigin contact retry error]', retryErr.message);
-      return NextResponse.json({ error: retryErr.message }, { status: 500 });
+      const retryMsg = retryErr.message ?? '';
+      if (/scope/i.test(retryMsg)) return NextResponse.json({ error: 'bigin_needs_reauth' }, { status: 403 });
+      console.error('[Bigin contact retry error]', retryMsg);
+      return NextResponse.json({ error: retryMsg }, { status: 500 });
     }
   }
 }

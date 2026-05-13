@@ -28,6 +28,13 @@ export async function POST(request) {
     return NextResponse.json({ url });
   } catch (err) {
     console.error('[Canva export error]', err.message);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    const msg = err.message ?? '';
+    if (/scope|forbidden|403/i.test(msg)) {
+      return NextResponse.json({ error: 'canva_needs_reauth' }, { status: 403 });
+    }
+    if (/401|unauthorized|invalid.*(token|oauth)|token.*(invalid|expired)/i.test(msg) && !/scope/i.test(msg)) {
+      return NextResponse.json({ error: 'canva_not_connected' }, { status: 401 });
+    }
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

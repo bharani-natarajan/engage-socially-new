@@ -25,6 +25,7 @@ async function getAccessToken(store) {
 }
 
 function isTokenError(msg) {
+  if (/scope/i.test(msg ?? '')) return false;
   return /401|unauthorized|invalid.*(token|oauth)|token.*(invalid|expired)/i.test(msg ?? '');
 }
 

@@ -72,7 +72,14 @@ function CanvaPickerModal({ onSelect, onClose }) {
         body: JSON.stringify({ designId: design.id }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? 'Export failed');
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403 || data.error === 'canva_needs_reauth' || data.error === 'canva_not_connected') {
+          setNeedsReauth(true);
+          setExporting(null);
+          return;
+        }
+        throw new Error(data.error ?? 'Export failed');
+      }
       onSelect(data.url, design.title ?? 'Canva design');
     } catch (err) {
       setError(err.message);
