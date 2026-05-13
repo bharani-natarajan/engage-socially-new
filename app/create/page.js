@@ -30,7 +30,7 @@ function CanvaPickerModal({ onSelect, onClose }) {
     const data = await res.json();
     if (!res.ok) {
       const err = new Error(data.error ?? 'Failed to load designs');
-      err.needsReauth = res.status === 403 || data.error === 'canva_needs_reauth';
+      err.needsReauth = res.status === 401 || res.status === 403 || data.error === 'canva_not_connected' || data.error === 'canva_needs_reauth';
       throw err;
     }
     return data;
@@ -115,9 +115,9 @@ function CanvaPickerModal({ onSelect, onClose }) {
 
           {needsReauth && !loading && (
             <div className="flex flex-col items-center justify-center py-16 gap-3">
-              <p className="text-sm font-semibold text-gray-700">Canva permissions updated</p>
+              <p className="text-sm font-semibold text-gray-700">Canva reconnection required</p>
               <p className="text-xs text-gray-400 text-center max-w-xs">
-                Your Canva connection needs to be refreshed to include the required permissions.
+                Your Canva session has expired or been revoked. Reconnect to continue.
               </p>
               <a
                 href="/api/auth/canva"
