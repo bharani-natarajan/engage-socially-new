@@ -10,7 +10,7 @@ async function getAccessToken(store) {
   const access = store.get('bigin_access_token')?.value;
   if (access) return access;
 
-  const refresh = store.get('bigin_refresh_token')?.value;
+  const refresh = store.get('bigin_refresh_token')?.value ?? process.env.ZOHO_REFRESH_TOKEN;
   if (!refresh) return null;
 
   const tokens = await refreshAccessToken(refresh);
@@ -43,7 +43,7 @@ export async function POST(request) {
     }
     // Token may have expired mid-request — try refresh once
     if (item?.code === 'INVALID_TOKEN' || item?.message?.toLowerCase().includes('token')) {
-      const refresh = store.get('bigin_refresh_token')?.value;
+      const refresh = store.get('bigin_refresh_token')?.value ?? process.env.ZOHO_REFRESH_TOKEN;
       if (!refresh) return NextResponse.json({ error: 'bigin_not_connected' }, { status: 401 });
       const tokens = await refreshAccessToken(refresh);
       const isHttps = APP_URL?.startsWith('https');
