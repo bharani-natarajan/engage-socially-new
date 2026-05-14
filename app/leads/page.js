@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getLeads, removeLead, upsertLead } from '@/lib/leads';
 
 const INTENT_STYLES = {
@@ -65,6 +65,41 @@ async function sendToBigin(lead) {
   return data;
 }
 
+function EditableField({ value, placeholder, type, onSave, icon }) {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(value);
+
+  function commit() {
+    setEditing(false);
+    if (val.trim() !== value) onSave(val.trim());
+  }
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        type={type}
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setVal(value); setEditing(false); } }}
+        className="text-[11px] border border-lord-border rounded px-1.5 py-0.5 w-36 outline-none focus:border-lord-green"
+      />
+    );
+  }
+
+  return (
+    <button
+      onClick={() => { setVal(value); setEditing(true); }}
+      className={`inline-flex items-center gap-1 text-[11px] rounded px-1.5 py-0.5 transition-colors hover:bg-gray-100 ${value ? 'text-lord-text-muted' : 'text-gray-300 hover:text-gray-400'}`}
+      title={value ? `Edit ${placeholder}` : placeholder}
+    >
+      {icon}
+      {value || placeholder}
+    </button>
+  );
+}
+
 export default function LeadsPage() {
   const [leads, setLeads] = useState([]);
   const [mounted, setMounted] = useState(false);
@@ -77,6 +112,11 @@ export default function LeadsPage() {
   const [biginSending, setBiginSending] = useState({}); // leadId → 'sending' | 'done' | 'error'
   const [bulkSending, setBulkSending] = useState(false);
   const [biginError, setBiginError] = useState('');
+  const [dmModal, setDmModal] = useState(null); // { lead, message }
+  const [dmThread, setDmThread] = useState({ chatId: null, messages: [], loading: false, error: '' });
+  const [dmSending, setDmSending] = useState(false);
+  const [dmError, setDmError] = useState('');
+  const dmBottomRef = useRef(null);
 
   useEffect(() => {
     setLeads(getLeads());
@@ -85,6 +125,40 @@ export default function LeadsPage() {
     fetch('/api/bigin/status').then(r => r.json()).then(d => setBiginConnected(!!d.connected)).catch(() => {});
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!dmModal) {
+      setDmThread({ chatId: null, messages: [], loading: false, error: '' });
+      return;
+    }
+    async function loadThread() {
+      setDmThread({ chatId: null, messages: [], loading: true, error: '' });
+      try {
+        const res = await fetch('/api/linkedin/conversations');
+        if (!res.ok) { setDmThread({ chatId: null, messages: [], loading: false, error: '' }); return; }
+        const data = await res.json();
+        const chat = (data.data ?? []).find((c) =>
+          c.participants?.data?.some((p) =>
+            p.id === dmModal.lead.userId ||
+            p.username?.toLowerCase() === dmModal.lead.username?.toLowerCase()
+          )
+        );
+        if (!chat) { setDmThread({ chatId: null, messages: [], loading: false, error: '' }); return; }
+
+        const msgRes = await fetch(`/api/linkedin/conversations/${chat.id}`);
+        const msgData = await msgRes.json();
+        const messages = (msgData.data ?? []).slice().reverse();
+        setDmThread({ chatId: chat.id, messages, loading: false, error: '' });
+      } catch {
+        setDmThread({ chatId: null, messages: [], loading: false, error: '' });
+      }
+    }
+    loadThread();
+  }, [dmModal?.lead?.id]);
+
+  useEffect(() => {
+    dmBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [dmThread.messages]);
 
   async function scanPosts() {
     setScanning(true);
@@ -125,6 +199,45 @@ export default function LeadsPage() {
       if (err.needsReauth) { setBiginNeedsReauth(true); setBiginConnected(false); }
       else setBiginError(err.message);
       setBiginSending((s) => ({ ...s, [lead.id]: 'error' }));
+    }
+  }
+
+  function handleFieldUpdate(lead, field, value) {
+    upsertLead({ ...lead, [field]: value });
+    setLeads(getLeads());
+  }
+
+  async function handleSendDM() {
+    if (!dmModal?.message?.trim()) return;
+    setDmSending(true);
+    setDmError('');
+    try {
+      let url, body;
+      if (dmThread.chatId) {
+        url = `/api/linkedin/conversations/${dmThread.chatId}`;
+        body = { message: dmModal.message };
+      } else {
+        url = '/api/linkedin/messages';
+        body = { recipientId: dmModal.lead.userId, message: dmModal.message };
+      }
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error ?? 'Failed to send DM');
+      }
+      const data = await res.json();
+      const newChatId = dmThread.chatId ?? data.id ?? data.chat_id ?? null;
+      const newMsg = { id: Date.now().toString(), text: dmModal.message, from: { username: 'me' }, timestamp: new Date().toISOString(), _isMe: true };
+      setDmThread((t) => ({ ...t, chatId: newChatId, messages: [...t.messages, newMsg] }));
+      setDmModal((m) => ({ ...m, message: '' }));
+    } catch (err) {
+      setDmError(err.message);
+    } finally {
+      setDmSending(false);
     }
   }
 
@@ -367,6 +480,23 @@ export default function LeadsPage() {
                   <p className="text-xs text-lord-text-muted leading-relaxed line-clamp-2">
                     &ldquo;{lead.commentText}&rdquo;
                   </p>
+                  <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                    <EditableField
+                      value={lead.email ?? ''}
+                      placeholder="Add email"
+                      type="email"
+                      onSave={(v) => handleFieldUpdate(lead, 'email', v)}
+                      icon={<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>}
+                    />
+                    <span className="text-gray-200 text-[11px]">·</span>
+                    <EditableField
+                      value={lead.phone ?? ''}
+                      placeholder="Add phone"
+                      type="tel"
+                      onSave={(v) => handleFieldUpdate(lead, 'phone', v)}
+                      icon={<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.42 2 2 0 0 1 3.6 1.27h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.91a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 16.92z"/></svg>}
+                    />
+                  </div>
                   {lead.postId && (
                     <a
                       href={`/posts/${encodeURIComponent(lead.postId.includes('%') ? decodeURIComponent(lead.postId) : lead.postId)}?platform=${lead.platform}`}
@@ -385,6 +515,17 @@ export default function LeadsPage() {
 
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <span className="text-[11px] text-lord-text-muted">{timeAgo(lead.addedAt)}</span>
+
+                  {/* LinkedIn DM */}
+                  {lead.platform === 'linkedin' && (
+                    <button
+                      onClick={() => setDmModal({ lead, message: '' })}
+                      title="Send LinkedIn DM"
+                      className="w-7 h-7 flex items-center justify-center rounded-full text-gray-300 hover:text-sky-600 hover:bg-sky-50 transition-colors"
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    </button>
+                  )}
 
                   {/* Send to Bigin */}
                   {biginConnected && (
@@ -426,6 +567,84 @@ export default function LeadsPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {dmModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={(e) => e.target === e.currentTarget && setDmModal(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md flex flex-col" style={{ height: '520px' }}>
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-lord-border flex-shrink-0">
+              <div>
+                <h2 className="text-sm font-semibold text-lord-text-main">LinkedIn DM</h2>
+                <p className="text-xs text-lord-text-muted mt-0.5">
+                  {dmModal.lead.name && dmModal.lead.name !== dmModal.lead.username ? dmModal.lead.name : ''} @{dmModal.lead.username}
+                </p>
+              </div>
+              <button onClick={() => setDmModal(null)} className="text-gray-300 hover:text-gray-500 transition-colors">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+
+            {/* Thread */}
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 bg-gray-50">
+              {dmThread.loading && (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-5 h-5 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
+              {!dmThread.loading && dmThread.messages.length === 0 && (
+                <p className="text-xs text-lord-text-muted text-center py-6">No previous messages. Start the conversation below.</p>
+              )}
+              {dmThread.messages.map((msg) => {
+                const isMe = msg._isMe || msg.from?.username === 'me';
+                return (
+                  <div key={msg.id} className={`flex items-end gap-2 ${isMe ? 'flex-row-reverse' : ''}`}>
+                    <div className={`max-w-[75%] flex flex-col gap-1 ${isMe ? 'items-end' : 'items-start'}`}>
+                      <div className={`px-3 py-2 rounded-2xl text-xs leading-relaxed ${
+                        isMe
+                          ? 'bg-sky-600 text-white rounded-br-sm'
+                          : 'bg-white border border-lord-border text-lord-text-main rounded-bl-sm shadow-sm'
+                      }`}>
+                        {msg.text}
+                      </div>
+                      {msg.timestamp && (
+                        <span className="text-[10px] text-lord-text-muted px-1">{timeAgo(msg.timestamp)}</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              <div ref={dmBottomRef} />
+            </div>
+
+            {/* Compose */}
+            <div className="flex-shrink-0 px-5 py-3 border-t border-lord-border bg-white rounded-b-2xl">
+              {dmError && <p className="text-xs text-red-500 mb-2">{dmError}</p>}
+              <div className="flex gap-2 items-end">
+                <textarea
+                  rows={2}
+                  value={dmModal.message}
+                  onChange={(e) => setDmModal((m) => ({ ...m, message: e.target.value }))}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendDM(); } }}
+                  placeholder="Write a message… (Enter to send)"
+                  className="flex-1 border border-lord-border rounded-xl px-3 py-2 text-sm text-lord-text-main placeholder:text-gray-300 outline-none focus:border-sky-400 resize-none"
+                />
+                <button
+                  onClick={handleSendDM}
+                  disabled={dmSending || !dmModal.message.trim()}
+                  className="w-9 h-9 flex items-center justify-center rounded-xl bg-sky-600 text-white hover:bg-sky-700 transition-colors disabled:opacity-40 flex-shrink-0"
+                >
+                  {dmSending
+                    ? <svg className="animate-spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                    : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                  }
+                </button>
+              </div>
+            </div>
+
+          </div>
         </div>
       )}
     </div>
