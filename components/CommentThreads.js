@@ -351,7 +351,7 @@ export default function CommentThreads({ comments, mediaId, postCaption, postThu
         setIntents(map);
         if (added > 0) setNewLeadCount(added);
       })
-      .catch(() => {})
+      .catch((err) => console.error('[classify]', err))
       .finally(() => setClassifying(false));
   }, [comments]);
 
