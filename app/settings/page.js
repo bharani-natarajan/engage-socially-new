@@ -21,6 +21,8 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [liName, setLiName] = useState(null);
+  const [igName, setIgName] = useState(null);
+  const [fbName, setFbName] = useState(null);
 
   useEffect(() => {
     setAutoReply(localStorage.getItem(SETTING_AI_AUTO_REPLY) === 'true');
@@ -29,6 +31,10 @@ export default function SettingsPage() {
     setAvoid(localStorage.getItem(SETTING_AI_AVOID) ?? '');
     const match = document.cookie.match(/(?:^|;\s*)unipile_name=([^;]*)/);
     setLiName(match ? decodeURIComponent(match[1]) : null);
+    const igMatch = document.cookie.match(/(?:^|;\s*)ig_username=([^;]*)/);
+    setIgName(igMatch ? decodeURIComponent(igMatch[1]) : null);
+    const fbMatch = document.cookie.match(/(?:^|;\s*)fb_page_name=([^;]*)/);
+    setFbName(fbMatch ? decodeURIComponent(fbMatch[1]) : null);
     // Sync li_org_id from localStorage to cookie so server components can read it
     const orgId = localStorage.getItem('li_org_id') ?? '';
     document.cookie = `li_org_id=${encodeURIComponent(orgId)};path=/;max-age=${365*24*60*60};samesite=lax`;
@@ -105,6 +111,41 @@ export default function SettingsPage() {
           </div>
           <p className="text-[11px] text-lord-text-muted mt-3">
             Powered by Unipile — no LinkedIn app approval required.
+          </p>
+        </div>
+
+        {/* Instagram */}
+        <div className="px-6 pb-5 border-t border-lord-border pt-5">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{background: 'radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%)'}}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                  <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-lord-text-main">Instagram</p>
+                <p className="text-xs text-lord-text-muted">
+                  {igName ? `Connected as @${igName}` : 'Not connected'}
+                </p>
+              </div>
+            </div>
+            <a
+              href="/api/auth/instagram"
+              className={`px-4 py-2 rounded-full text-[12px] font-bold transition-colors ${
+                igName ? 'bg-gray-100 text-gray-500 hover:bg-gray-200' : 'bg-pink-500 text-white hover:bg-pink-600'
+              }`}
+            >
+              {igName ? 'Reconnect' : 'Connect'}
+            </a>
+          </div>
+          {igName && fbName && (
+            <p className="text-[11px] text-lord-text-muted mt-3">
+              Facebook Page: <span className="font-medium text-lord-text-main">{fbName}</span>
+            </p>
+          )}
+          <p className="text-[11px] text-lord-text-muted mt-1">
+            Connects both Instagram and Facebook in one step.
           </p>
         </div>
       </div>
