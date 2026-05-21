@@ -41,10 +41,15 @@ export async function GET(request) {
     // 3. Get Facebook Pages to resolve the Instagram Business Account ID
     const pagesRes = await fetch(`${GRAPH}/me/accounts?access_token=${longToken}`);
     const pagesData = await pagesRes.json();
+    if (pagesData.error) {
+      const { code, error_subcode, message } = pagesData.error;
+      if (code === 190 && (error_subcode === 463 || error_subcode === 467)) {
+        throw new Error('Access token has expired. Please reconnect your account.');
+      }
+      throw new Error(`Facebook API error: ${message}`);
+    }
     if (!pagesData.data?.length) {
-      throw new Error(
-        'No Facebook Pages found. Connect your Instagram account to a Facebook Page first.'
-      );
+      throw new Error('No Facebook Pages found. Connect your Instagram account to a Facebook Page first.');
     }
     const page = pagesData.data[0];
 

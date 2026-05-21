@@ -25,8 +25,15 @@ export async function GET(request) {
     const pagesData = await pagesRes.json();
     console.log('[Manual Auth Debug] /me/accounts response:', JSON.stringify(pagesData, null, 2));
 
+    if (pagesData.error) {
+      const { code, error_subcode, message } = pagesData.error;
+      if (code === 190 && (error_subcode === 463 || error_subcode === 467)) {
+        throw new Error('Access token has expired. Please generate a new token and re-authenticate.');
+      }
+      throw new Error(`Facebook API error: ${message}`);
+    }
     if (!pagesData.data?.length) {
-      throw new Error(`No Facebook Pages found. API response: ${JSON.stringify(pagesData)}`);
+      throw new Error('No Facebook Pages found. Make sure your token has the pages_show_list permission and is linked to a Page.');
     }
     const page = pagesData.data[0];
 
