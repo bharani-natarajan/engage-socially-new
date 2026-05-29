@@ -1,5 +1,5 @@
 import './globals.css';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import TopNav from '@/components/TopNav';
 
@@ -9,12 +9,14 @@ export const metadata = {
 };
 
 export default async function RootLayout({ children }) {
+  const headersList = await headers();
+  const pathname = headersList.get('x-pathname') ?? '';
   const store = await cookies();
   const isConnected = !!store.get('ig_user_id')?.value;
   const hasFbToken = !!store.get('fb_page_id')?.value;
   const manualToken = process.env.MANUAL_IG_ACCESS_TOKEN;
 
-  if ((!isConnected || !hasFbToken) && manualToken) {
+  if (pathname !== '/settings' && (!isConnected || !hasFbToken) && manualToken) {
     redirect(`/api/auth/manual?token=${manualToken}`);
   }
 
