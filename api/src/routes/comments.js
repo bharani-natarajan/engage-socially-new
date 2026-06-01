@@ -1,13 +1,38 @@
 import { Router } from 'express';
 import { prisma } from '../prisma.js';
+import { runSchedulerJob } from '../cron/index.js';
 
 const router = Router();
+
+// GET /comments
+router.get('/', async (req, res, next) => {
+  try {
+    const comments = await prisma.workflowComment.findMany({
+      where: {
+        workflow: {
+          userId: req.userId,
+        },
+      },
+      include: {
+        workflow: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json({ data: comments });
+  } catch (err) { next(err); }
+});
 
 // PATCH /comments/:id
 router.patch('/:id', async (req, res, next) => {
   try {
     const { status, scheduledAt, postedAt, errorMessage } = req.body;
-    const allowed = ['pending', 'approved', 'posted', 'failed'];
+    const allowed = ['pending', 'approved', 'scheduled', 'posting', 'posted', 'failed', 'rejected'];
     if (status && !allowed.includes(status))
       return res.status(400).json({ error: `status must be one of: ${allowed.join(', ')}` });
 
@@ -27,6 +52,11 @@ router.patch('/:id', async (req, res, next) => {
         ...(errorMessage !== undefined && { errorMessage }),
       },
     });
+
+    if (status === 'approved') {
+      runSchedulerJob().catch(err => console.error('[Immediate Scheduler Cron Error]', err));
+    }
+
     res.json({ data });
   } catch (err) { next(err); }
 });

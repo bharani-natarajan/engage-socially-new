@@ -11,7 +11,7 @@ export async function POST(request) {
   if (error) return error;
 
   try {
-    const { postText, authorName, brandContext, tone, avoid } = await request.json();
+    const { postText, authorName, brandContext, tone, avoid, commentLength } = await request.json();
     if (!postText) return NextResponse.json({ error: 'postText is required' }, { status: 400 });
 
     const toneInstructions = {
@@ -21,12 +21,20 @@ export async function POST(request) {
       witty: 'Write in a light-hearted tone with a touch of humour.',
     };
 
+    const lengthInstructions = {
+      short: 'Write a very short, punchy comment (1 brief sentence or phrase, under 15 words).',
+      medium: 'Write a medium-sized comment (1-2 sentences).',
+      long: 'Write a detailed, insightful comment (3-4 sentences, adding value or asking a relevant question).',
+    };
+
     const parts = [];
     if (brandContext?.trim()) parts.push(`Brand / business context:\n${brandContext.trim()}`);
     parts.push(`LinkedIn post by ${authorName ?? 'someone'}:\n"${postText.trim().slice(0, 600)}"`);
     parts.push(toneInstructions[tone] ?? toneInstructions.professional);
     if (avoid?.trim()) parts.push(`Important — do NOT include: ${avoid.trim()}`);
-    parts.push('Write a thoughtful LinkedIn comment on this post. 1-2 sentences. No hashtags. Return only the comment text, nothing else.');
+
+    const lenInstr = lengthInstructions[commentLength] ?? lengthInstructions.medium;
+    parts.push(`Write a thoughtful LinkedIn comment on this post. ${lenInstr} No hashtags. Return only the comment text, nothing else.`);
 
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
     const result = await model.generateContent(parts.join('\n\n'));

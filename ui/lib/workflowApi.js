@@ -34,6 +34,9 @@ export const workflowApi = {
   listComments: (userId, workflowId) =>
     apiFetch(`/workflows/${workflowId}/comments`, { userId }),
 
+  listAllComments: (userId) =>
+    apiFetch('/comments', { userId }),
+
   addComments: (userId, workflowId, comments) =>
     apiFetch(`/workflows/${workflowId}/comments`, { method: 'POST', body: { comments }, userId }),
 
@@ -42,4 +45,8 @@ export const workflowApi = {
 
   removeComment: (userId, commentId) =>
     apiFetch(`/comments/${commentId}`, { method: 'DELETE', userId }),
+
+  // Analytics
+  getAnalytics: (userId, range = '7d') =>
+    apiFetch(`/analytics?range=${range}`, { userId }),
 };

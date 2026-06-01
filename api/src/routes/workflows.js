@@ -9,11 +9,17 @@ router.get('/', async (req, res, next) => {
     const workflows = await prisma.workflow.findMany({
       where: { userId: req.userId },
       orderBy: { createdAt: 'desc' },
-      include: { _count: { select: { comments: true } } },
+      include: {
+        comments: {
+          orderBy: { createdAt: 'desc' },
+        },
+      },
     });
-    const data = workflows.map(({ _count, ...w }) => ({
+    const data = workflows.map(({ comments, ...w }) => ({
       ...w,
-      commentCount: _count.comments,
+      commentCount: comments.length,
+      pendingComments: comments.filter(c => c.status === 'pending'),
+      comments,
     }));
     res.json({ data });
   } catch (err) { next(err); }
@@ -22,7 +28,7 @@ router.get('/', async (req, res, next) => {
 // POST /workflows
 router.post('/', async (req, res, next) => {
   try {
-    const { name, type, keyword, creatorName, creatorUrl, creatorIdentifier } = req.body;
+    const { name, type, keyword, creatorName, creatorUrl, creatorIdentifier, autoPost, commentLength, commentsPerDay } = req.body;
 
     if (!name?.trim()) return res.status(400).json({ error: 'name is required' });
     if (!['keyword', 'creator'].includes(type))
@@ -41,23 +47,83 @@ router.post('/', async (req, res, next) => {
         creatorName: creatorName?.trim() ?? '',
         creatorUrl: creatorUrl?.trim() ?? '',
         creatorIdentifier: creatorIdentifier?.trim() ?? '',
+        autoPost: autoPost ?? false,
+        commentLength: commentLength ?? 'medium',
+        commentsPerDay: commentsPerDay !== undefined ? parseInt(commentsPerDay, 10) : (type === 'creator' ? 1 : 20),
       },
     });
-    res.status(201).json({ data });
+
+    res.status(201).json({ data: {
+      ...data,
+      commentCount: 0,
+      pendingComments: [],
+      comments: [],
+    }});
   } catch (err) { next(err); }
 });
+
+function getScheduledTimeInTimezone(timezone) {
+  try {
+    const now = new Date();
+    const localStr = now.toLocaleString('sv-SE', { timeZone: timezone });
+    const utcStr = now.toLocaleString('sv-SE', { timeZone: 'UTC' });
+    const currentHour = parseInt(localStr.split(' ')[1]?.split(':')[0] ?? '12');
+
+    let targetHour, addDays = 0;
+    if (currentHour >= 21) {
+      addDays = 1;
+      targetHour = 9 + Math.floor(Math.random() * 12);
+    } else if (currentHour < 9) {
+      targetHour = 9 + Math.floor(Math.random() * 12);
+    } else {
+      const minH = currentHour + 1;
+      if (minH >= 21) { addDays = 1; targetHour = 9 + Math.floor(Math.random() * 12); }
+      else targetHour = minH + Math.floor(Math.random() * (21 - minH));
+    }
+    const targetMin = Math.floor(Math.random() * 60);
+
+    const localNow = new Date(localStr.replace(' ', 'T'));
+    const utcNow = new Date(utcStr.replace(' ', 'T'));
+    const offsetMinutes = (localNow.getTime() - utcNow.getTime()) / 60000;
+
+    const totalTargetMin = targetHour * 60 + targetMin - offsetMinutes;
+    let utcH = Math.floor(totalTargetMin / 60);
+    const utcM = Math.round(((totalTargetMin % 60) + 60) % 60);
+    let dayAdj = 0;
+    if (utcH < 0) { utcH += 24; dayAdj = -1; }
+    if (utcH >= 24) { utcH -= 24; dayAdj = 1; }
+
+    const result = new Date(now);
+    result.setDate(result.getDate() + addDays + dayAdj);
+    result.setUTCHours(utcH, utcM, 0, 0);
+    return result;
+  } catch {
+    return new Date(Date.now() + 3600 * 1000);
+  }
+}
 
 // PATCH /workflows/:id
 router.patch('/:id', async (req, res, next) => {
   try {
-    const { lastRunAt, commentsGenerated } = req.body;
+    const { name, keyword, creatorName, creatorUrl, creatorIdentifier, autoPost, commentLength, commentsPerDay, lastRunAt, commentsGenerated, timezone } = req.body;
+    
+    // First update the workflow
     const data = await prisma.workflow.update({
       where: { id: req.params.id, userId: req.userId },
       data: {
+        ...(name !== undefined && { name: name.trim() }),
+        ...(keyword !== undefined && { keyword: keyword?.trim() ?? '' }),
+        ...(creatorName !== undefined && { creatorName: creatorName?.trim() ?? '' }),
+        ...(creatorUrl !== undefined && { creatorUrl: creatorUrl?.trim() ?? '' }),
+        ...(creatorIdentifier !== undefined && { creatorIdentifier: creatorIdentifier?.trim() ?? '' }),
+        ...(autoPost !== undefined && { autoPost }),
+        ...(commentLength !== undefined && { commentLength }),
+        ...(commentsPerDay !== undefined && { commentsPerDay: parseInt(commentsPerDay, 10) }),
         ...(lastRunAt !== undefined && { lastRunAt: new Date(lastRunAt) }),
         ...(commentsGenerated !== undefined && { commentsGenerated }),
       },
     });
+
     res.json({ data });
   } catch (err) {
     if (err.code === 'P2025') return res.status(404).json({ error: 'Workflow not found' });
@@ -118,6 +184,8 @@ router.post('/:id/comments', async (req, res, next) => {
         postAuthorHeadline: c.postAuthorHeadline ?? '',
         postUrl: c.postUrl ?? null,
         commentText: c.commentText,
+        status: c.status ?? 'pending',
+        scheduledAt: c.scheduledAt ? new Date(c.scheduledAt) : null,
       })),
     });
     res.status(201).json({ data });

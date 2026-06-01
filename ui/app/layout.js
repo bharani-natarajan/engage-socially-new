@@ -21,8 +21,8 @@ export default async function RootLayout({ children }) {
   }
 
   return (
-    <html lang="en">
-      <body className="bg-lord-bg font-sans antialiased text-lord-text-main">
+    <html lang="en" suppressHydrationWarning>
+      <body className="bg-lord-bg font-sans antialiased text-lord-text-main" suppressHydrationWarning>
         <div className="flex flex-col h-screen overflow-hidden">
           <TopNav />
           <main className="flex-1 overflow-y-auto overflow-x-hidden p-8">

@@ -169,7 +169,7 @@ export default function MessagesPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-medium text-gray-900 truncate">
-                      @{participant?.username ?? 'Unknown'}
+                      {platform === 'instagram' ? '@' : ''}{participant?.username ?? 'Unknown'}
                     </span>
                     {convo.updated_time && (
                       <span className="text-xs text-gray-400 flex-shrink-0">
@@ -206,7 +206,9 @@ export default function MessagesPage() {
             <div className="flex items-center gap-3 px-6 py-4 bg-white border-b border-gray-100">
               <Avatar name={other?.username ?? '?'} size="sm" />
               <div>
-                <p className="text-sm font-semibold text-gray-900">@{other?.username ?? 'Unknown'}</p>
+                <p className="text-sm font-semibold text-gray-900">
+                  {platform === 'instagram' ? '@' : ''}{other?.username ?? 'Unknown'}
+                </p>
               </div>
             </div>
 

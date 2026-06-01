@@ -1,12 +1,21 @@
 import { NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/tokens';
+import { getTokens, getFbTokens, getUnipileTokens } from '@/lib/tokens';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 50;
 
 export async function POST(request) {
-  const { error } = await requireAuth();
-  if (error) return error;
+  const igTokens = await getTokens();
+  const fbTokens = await getFbTokens();
+  const unipileTokens = await getUnipileTokens();
+
+  const isAuthenticated = igTokens.accessToken || fbTokens.pageToken || unipileTokens.accountId;
+  if (!isAuthenticated) {
+    return NextResponse.json(
+      { error: 'Not authenticated. Please connect at least one account.' },
+      { status: 401 }
+    );
+  }
 
   try {
     const formData = await request.formData();

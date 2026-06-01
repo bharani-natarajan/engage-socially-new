@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
-import { requireAuth } from '@/lib/tokens';
+import { getTokens, getFbTokens, getUnipileTokens } from '@/lib/tokens';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,8 +11,17 @@ cloudinary.config({
 });
 
 export async function GET(request) {
-  const { error } = await requireAuth();
-  if (error) return error;
+  const igTokens = await getTokens();
+  const fbTokens = await getFbTokens();
+  const unipileTokens = await getUnipileTokens();
+
+  const isAuthenticated = igTokens.accessToken || fbTokens.pageToken || unipileTokens.accountId;
+  if (!isAuthenticated) {
+    return NextResponse.json(
+      { error: 'Not authenticated. Please connect at least one account.' },
+      { status: 401 }
+    );
+  }
 
   const { searchParams } = new URL(request.url);
   const pollingUrl = searchParams.get('url');

@@ -1,14 +1,23 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { requireAuth } from '@/lib/tokens';
+import { getTokens, getFbTokens, getUnipileTokens } from '@/lib/tokens';
 
 export const dynamic = 'force-dynamic';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 export async function POST(request) {
-  const { error } = await requireAuth();
-  if (error) return error;
+  const igTokens = await getTokens();
+  const fbTokens = await getFbTokens();
+  const unipileTokens = await getUnipileTokens();
+
+  const isAuthenticated = igTokens.accessToken || fbTokens.pageToken || unipileTokens.accountId;
+  if (!isAuthenticated) {
+    return NextResponse.json(
+      { error: 'Not authenticated. Please connect at least one account.' },
+      { status: 401 }
+    );
+  }
 
   try {
     const { commentText, username, postCaption, brandContext, tone, avoid } = await request.json();

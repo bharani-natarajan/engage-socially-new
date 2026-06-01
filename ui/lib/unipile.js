@@ -136,6 +136,10 @@ export async function getChats(accountId) {
   return req(`/chats?account_id=${encodeURIComponent(accountId)}`);
 }
 
+export async function getChatAttendees(accountId) {
+  return req(`/chat_attendees?account_id=${encodeURIComponent(accountId)}&limit=200`);
+}
+
 export async function getChatMessages(chatId) {
   return req(`/chats/${chatId}/messages`);
 }
@@ -306,10 +310,10 @@ export function normalizeFbComment(comment) {
 
 export function normalizeChat(chat) {
   const attendees = chat.attendees ?? chat.participants ?? [];
-  const lastMsg = chat.last_message ?? null;
+  const lastMsg = chat.last_message ?? chat.lastMessage ?? null;
   return {
     id: chat.id ?? '',
-    updated_time: chat.updated_at ?? chat.last_message_at ?? lastMsg?.created_at ?? null,
+    updated_time: chat.updated_at ?? chat.last_message_at ?? lastMsg?.timestamp ?? lastMsg?.created_at ?? null,
     participants: {
       data: attendees.map((a) => ({
         id: a.provider_id ?? a.id ?? '',
@@ -321,25 +325,26 @@ export function normalizeChat(chat) {
         id: lastMsg.id ?? '',
         text: lastMsg.text ?? '',
         from: {
-          username: lastMsg.sender?.name ?? 'Unknown',
-          id: lastMsg.sender?.provider_id ?? lastMsg.sender?.id ?? '',
+          username: (lastMsg.is_sender === 1 || lastMsg.is_sender === true) ? 'me' : 'other',
+          id: lastMsg.sender_id ?? lastMsg.sender?.id ?? '',
         },
-        timestamp: lastMsg.created_at ?? null,
+        timestamp: lastMsg.timestamp ?? lastMsg.created_at ?? null,
       }] : [],
     },
   };
 }
 
 export function normalizeChatMessage(msg) {
+  const isMe = msg.is_sender === 1 || msg.is_sender === true || msg.sender?.is_me === true;
   return {
     id: msg.id ?? '',
     text: msg.text ?? msg.body ?? '',
     from: {
-      username: msg.sender?.name ?? (msg.sender?.is_me ? 'me' : 'Unknown'),
-      id: msg.sender?.provider_id ?? msg.sender?.id ?? '',
+      username: isMe ? 'me' : 'other',
+      id: msg.sender_id ?? msg.sender?.id ?? '',
     },
-    timestamp: msg.created_at ?? null,
-    _isMe: msg.sender?.is_me ?? false,
+    timestamp: msg.timestamp ?? msg.created_at ?? null,
+    _isMe: isMe,
   };
 }
 
