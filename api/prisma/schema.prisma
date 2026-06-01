@@ -1,0 +1,48 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Workflow {
+  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String            @map("user_id")
+  name              String
+  type              String
+  keyword           String            @default("")
+  creatorName       String            @default("") @map("creator_name")
+  creatorUrl        String            @default("") @map("creator_url")
+  creatorIdentifier String            @default("") @map("creator_identifier")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  lastRunAt         DateTime?         @map("last_run_at")
+  commentsGenerated Int               @default(0) @map("comments_generated")
+  comments          WorkflowComment[]
+
+  @@index([userId])
+  @@map("workflows")
+}
+
+model WorkflowComment {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workflowId         String    @map("workflow_id") @db.Uuid
+  postId             String    @map("post_id")
+  postText           String    @default("") @map("post_text")
+  postAuthor         String    @default("") @map("post_author")
+  postAuthorHeadline String    @default("") @map("post_author_headline")
+  postUrl            String?   @map("post_url")
+  commentText        String    @map("comment_text")
+  status             String    @default("pending")
+  scheduledAt        DateTime? @map("scheduled_at")
+  postedAt           DateTime? @map("posted_at")
+  errorMessage       String?   @map("error_message")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  workflow           Workflow  @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@index([workflowId])
+  @@index([status])
+  @@map("workflow_comments")
+}

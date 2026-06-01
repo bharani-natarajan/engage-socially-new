@@ -1,0 +1,23 @@
+{
+  "name": "engage-socially-api",
+  "version": "1.0.0",
+  "description": "Node.js REST API for Engage Socially workflows",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio",
+    "db:generate": "prisma generate"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.8.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "prisma": "^6.8.2"
+  }
+}
