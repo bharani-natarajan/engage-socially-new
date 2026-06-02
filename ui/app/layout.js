@@ -11,12 +11,15 @@ export const metadata = {
 export default async function RootLayout({ children }) {
   const headersList = await headers();
   const pathname = headersList.get('x-pathname') ?? '';
+  const search = headersList.get('x-search') ?? '';
   const store = await cookies();
   const isConnected = !!store.get('ig_user_id')?.value;
   const hasFbToken = !!store.get('fb_page_id')?.value;
   const manualToken = process.env.MANUAL_IG_ACCESS_TOKEN;
 
-  if (pathname !== '/settings' && (!isConnected || !hasFbToken) && manualToken) {
+  const hasError = search.includes('error=');
+
+  if (pathname !== '/settings' && (!isConnected || !hasFbToken) && manualToken && !hasError) {
     redirect(`/api/auth/manual?token=${manualToken}`);
   }
 

@@ -7,8 +7,8 @@ export function startCronJobs() {
   // Run Scheduler Job every 1 hour (3,600,000 ms)
   const schedulerInterval = setInterval(runSchedulerJob, 3600000);
 
-  // Run Executor Job every 30 seconds (30,000 ms)
-  const executorInterval = setInterval(runExecutorJob, 30000);
+  // Run Executor Job every 17 minutes (1,020,000 ms)
+  const executorInterval = setInterval(runExecutorJob, 1020000);
 
   // Run them immediately on startup
   runSchedulerJob();

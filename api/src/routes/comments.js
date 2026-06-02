@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../prisma.js';
 import { runSchedulerJob } from '../cron/index.js';
+import { getScheduledTimeInIST } from '../cron/scheduler.js';
 
 const router = Router();
 
@@ -43,19 +44,25 @@ router.patch('/:id', async (req, res, next) => {
     });
     if (!existing) return res.status(404).json({ error: 'Comment not found' });
 
+    let finalStatus = status;
+    let finalScheduledAt = scheduledAt;
+
+    if (status === 'approved' || status === 'scheduled') {
+      finalStatus = 'scheduled';
+      if (!scheduledAt) {
+        finalScheduledAt = getScheduledTimeInIST();
+      }
+    }
+
     const data = await prisma.workflowComment.update({
       where: { id: req.params.id },
       data: {
-        ...(status !== undefined && { status }),
-        ...(scheduledAt !== undefined && { scheduledAt: scheduledAt ? new Date(scheduledAt) : null }),
+        ...(finalStatus !== undefined && { status: finalStatus }),
+        ...(finalScheduledAt !== undefined && { scheduledAt: finalScheduledAt ? new Date(finalScheduledAt) : null }),
         ...(postedAt !== undefined && { postedAt: postedAt ? new Date(postedAt) : null }),
         ...(errorMessage !== undefined && { errorMessage }),
       },
     });
-
-    if (status === 'approved') {
-      runSchedulerJob().catch(err => console.error('[Immediate Scheduler Cron Error]', err));
-    }
 
     res.json({ data });
   } catch (err) { next(err); }

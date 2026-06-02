@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/cron/executor",
+      "schedule": "*/17 * * * *"
+    },
+    {
+      "path": "/cron/scheduler",
+      "schedule": "0 * * * *"
+    }
+  ]
+}

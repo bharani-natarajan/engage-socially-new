@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { createPortal } from 'react-dom';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { workflowApi } from '@/lib/workflowApi';
+import ActionLoader from '@/components/ActionLoader';
 
 // ─── shared helpers ────────────────────────────────────────────────────────────
 
@@ -87,9 +89,51 @@ function StatusBadge({ status }) {
   };
   const s = map[status] ?? map.pending;
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full border text-xs font-bold ${s.cls}`}>
+    <span className={`inline-flex items-center px-3 py-1 rounded-full border text-[13px] font-bold ${s.cls}`}>
       {s.label}
     </span>
+  );
+}
+
+function DeleteConfirmModal({ title, message, onConfirm, onCancel }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-xl border border-lord-border p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+        <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6" /><path d="M14 11v6" />
+          </svg>
+        </div>
+        <div className="space-y-1.5">
+          <h3 className="text-base font-bold text-lord-text-main">{title || 'Confirm Action'}</h3>
+          <p className="text-xs text-lord-text-muted leading-relaxed">
+            {message || 'Are you sure you want to proceed?'}
+          </p>
+        </div>
+        <div className="flex items-center gap-3 pt-2">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-2.5 rounded-xl border border-lord-border text-xs font-bold text-lord-text-muted hover:bg-lord-card transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-xs font-bold hover:bg-red-700 transition-colors shadow-sm"
+          >
+            Confirm
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 }
 
@@ -346,6 +390,50 @@ function SVGChart({ data }) {
 
 // ─── Inline creation & edit form (NO MODAL, NO SEPARATE SECTION CARD) ─────────
 
+function TargetChangeWarningModal({ onConfirm, onCancel }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-xl border border-lord-border p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+        <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+            <line x1="12" y1="9" x2="12" y2="13" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+        </div>
+        <div className="space-y-1.5">
+          <h3 className="text-base font-bold text-lord-text-main">Target Change Notice</h3>
+          <p className="text-xs text-lord-text-muted leading-relaxed">
+            This change will reflect starting tomorrow. Since this workflow has already run today, new posts for the updated target will be fetched and generated starting tomorrow. Your existing comments will remain unchanged.
+          </p>
+        </div>
+        <div className="flex items-center gap-3 pt-2">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-2.5 rounded-xl border border-lord-border text-xs font-bold text-lord-text-muted hover:bg-lord-card transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 py-2.5 rounded-xl bg-[#0A66C2] text-white text-xs font-bold hover:bg-[#004182] transition-colors shadow-sm"
+          >
+            Confirm & Save
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 function WorkflowForm({ workflow, onCancel, onSave }) {
   const isEdit = !!workflow;
   const [name, setName] = useState(workflow?.name ?? '');
@@ -355,14 +443,26 @@ function WorkflowForm({ workflow, onCancel, onSave }) {
   const [creatorUrl, setCreatorUrl] = useState(workflow?.creatorUrl ?? '');
   const [autoPost, setAutoPost] = useState(workflow?.autoPost ?? false);
   const [commentLength, setCommentLength] = useState(workflow?.commentLength ?? 'medium');
-  const [commentsPerDay, setCommentsPerDay] = useState(workflow?.commentsPerDay ?? (type === 'creator' ? 1 : 20));
+  const [commentsPerDay, setCommentsPerDay] = useState(String(workflow?.commentsPerDay ?? (type === 'creator' ? 1 : 20)));
   const [error, setError] = useState('');
+  const [showTargetChangeWarning, setShowTargetChangeWarning] = useState(false);
+  const [pendingPayload, setPendingPayload] = useState(null);
+
+  const isTargetModified = isEdit && (
+    type !== workflow.type ||
+    (type === 'keyword' && keyword.trim() !== workflow.keyword) ||
+    (type === 'creator' && creatorUrl.trim() !== workflow.creatorUrl)
+  );
+
+  const isCommentsPerDayChanged = isEdit && (
+    (parseInt(commentsPerDay, 10) || 0) !== workflow.commentsPerDay
+  );
 
   useEffect(() => {
     if (type === 'creator') {
-      setCommentsPerDay(1);
+      setCommentsPerDay('1');
     } else {
-      if (commentsPerDay === 1) setCommentsPerDay(20);
+      if (commentsPerDay === '1') setCommentsPerDay('20');
     }
   }, [type]);
 
@@ -372,6 +472,25 @@ function WorkflowForm({ workflow, onCancel, onSave }) {
     if (type === 'creator') {
       if (!creatorName.trim()) { setError('Creator name is required'); return; }
       if (!creatorUrl.trim()) { setError('Creator LinkedIn URL is required'); return; }
+    }
+
+    const parsedLimit = parseInt(commentsPerDay, 10);
+    if (isNaN(parsedLimit) || parsedLimit < 1) {
+      setError('Comments per day count must be at least 1.');
+      return;
+    }
+    if (type === 'creator' && parsedLimit > 1) {
+      setError('Comments per day count for creator tracking is limited to 1.');
+      return;
+    }
+    if (type === 'keyword' && parsedLimit > 20) {
+      setError('Comments per day count for keyword tracking cannot exceed 20.');
+      return;
+    }
+
+    if (isEdit && isCommentsPerDayChanged && workflow?.commentCount > 0 && parsedLimit < workflow.commentCount) {
+      setError(`Comments per day count must be at least ${workflow.commentCount} since that many posts have already been processed.`);
+      return;
     }
 
     const urlMatch = creatorUrl.match(/linkedin\.com\/in\/([^/?#]+)/i);
@@ -386,196 +505,249 @@ function WorkflowForm({ workflow, onCancel, onSave }) {
       creatorIdentifier: type === 'creator' ? creatorIdentifier : '',
       autoPost,
       commentLength,
-      commentsPerDay: parseInt(commentsPerDay, 10),
+      commentsPerDay: parsedLimit,
     };
 
-    onSave(payload);
+    const targetChanged = isEdit && (
+      (type === 'keyword' && payload.keyword !== workflow.keyword) ||
+      (type === 'creator' && payload.creatorUrl !== workflow.creatorUrl)
+    );
+
+    if (targetChanged) {
+      setPendingPayload(payload);
+      setShowTargetChangeWarning(true);
+    } else {
+      onSave(payload);
+    }
   }
 
   return (
-    <div className="bg-white rounded-3xl border border-lord-border p-6 shadow-sm">
-      <div className="space-y-6">
-        <div className="flex items-center justify-between pb-4 border-b border-lord-border">
-          <div>
-            <h3 className="text-base font-bold text-lord-text-main">
-              {isEdit ? 'Edit Workflow' : 'Create New Workflow'}
-            </h3>
-            <p className="text-xs text-lord-text-muted mt-0.5">Configure your automated comment generation campaign</p>
-          </div>
-          <button
-            onClick={onCancel}
-            className="px-4 py-2 rounded-xl bg-lord-card border border-lord-border text-xs font-bold text-lord-text-main hover:bg-lord-border transition-colors shadow-sm"
-          >
-            Back
-          </button>
-        </div>
-
-        <div className="space-y-5">
-          {/* Workflow Name */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-bold text-lord-text-main">Workflow Name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="e.g. Chennai Real Estate Leads"
-              className="w-full rounded-xl border border-lord-border bg-lord-bg px-4 py-2.5 text-sm text-lord-text-main placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-lord-green"
-            />
-          </div>
-
-          {/* Workflow Type Selector (Only if Create Mode) */}
-          {!isEdit && (
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-lord-text-main">Workflow Type</label>
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { id: 'keyword', label: 'Keyword Target', desc: 'Auto-comment by keyword' },
-                  { id: 'creator', label: 'Creator Target', desc: 'Auto-comment by creator' },
-                ].map(t => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setType(t.id)}
-                    className={`p-4 rounded-2xl border text-left space-y-1 transition-all ${type === t.id
-                      ? 'border-lord-green bg-lord-green-light/40 font-bold'
-                      : 'border-lord-border hover:border-lord-green/40'
-                      }`}
-                  >
-                    <p className={`text-sm font-bold ${type === t.id ? 'text-lord-green-dark' : 'text-lord-text-main'}`}>
-                      {t.label}
-                    </p>
-                    <p className="text-xs text-lord-text-muted leading-tight">{t.desc}</p>
-                  </button>
-                ))}
-              </div>
+    <>
+      <div className="bg-white rounded-3xl border border-lord-border p-6 shadow-sm">
+        <div className="space-y-6">
+          <div className="flex items-center justify-between pb-4 border-b border-lord-border">
+            <div>
+              <h3 className="text-base font-bold text-lord-text-main">
+                {isEdit ? 'Edit Workflow' : 'Create New Workflow'}
+              </h3>
+              <p className="text-xs text-lord-text-muted mt-0.5">Configure your automated comment generation campaign</p>
             </div>
-          )}
+            <button
+              onClick={onCancel}
+              className="px-4 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-[#0A66C2] border border-blue-100/50 text-xs font-bold transition-colors shadow-sm"
+            >
+              Back
+            </button>
+          </div>
 
-          {/* Keyword Target field */}
-          {type === 'keyword' ? (
+          <div className="space-y-5">
+            {/* Workflow Name */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-lord-text-main">Keyword Target</label>
+              <label className="block text-xs font-bold text-lord-text-main">Workflow Name</label>
               <input
                 type="text"
-                value={keyword}
-                onChange={e => setKeyword(e.target.value)}
-                placeholder="e.g. real estate, Chennai, SaaS startup (comma separated)"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="e.g. Chennai Real Estate Leads"
                 className="w-full rounded-xl border border-lord-border bg-lord-bg px-4 py-2.5 text-sm text-lord-text-main placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-lord-green"
               />
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            {/* Workflow Type Selector (Only if Create Mode) */}
+            {!isEdit && (
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-lord-text-main">Creator Name</label>
+                <label className="block text-xs font-bold text-lord-text-main">Workflow Type</label>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { id: 'keyword', label: 'Keyword Target', desc: 'Auto-comment by keyword' },
+                    { id: 'creator', label: 'Creator Target', desc: 'Auto-comment by creator' },
+                  ].map(t => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setType(t.id)}
+                      className={`p-4 rounded-2xl border text-left space-y-1 transition-all ${type === t.id
+                        ? 'border-lord-green bg-lord-green-light/40 font-bold'
+                        : 'border-lord-border hover:border-lord-green/40'
+                        }`}
+                    >
+                      <p className={`text-sm font-bold ${type === t.id ? 'text-lord-green-dark' : 'text-lord-text-main'}`}>
+                        {t.label}
+                      </p>
+                      <p className="text-xs text-lord-text-muted leading-tight">{t.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Keyword Target field */}
+            {type === 'keyword' ? (
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-lord-text-main">Keyword Target</label>
                 <input
                   type="text"
-                  value={creatorName}
-                  onChange={e => setCreatorName(e.target.value)}
-                  placeholder="e.g. John Doe"
+                  value={keyword}
+                  onChange={e => setKeyword(e.target.value)}
+                  placeholder="e.g. real estate, Chennai, SaaS startup (comma separated)"
                   className="w-full rounded-xl border border-lord-border bg-lord-bg px-4 py-2.5 text-sm text-lord-text-main placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-lord-green"
                 />
               </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-lord-text-main">Creator Name</label>
+                  <input
+                    type="text"
+                    value={creatorName}
+                    onChange={e => setCreatorName(e.target.value)}
+                    placeholder="e.g. John Doe"
+                    className="w-full rounded-xl border border-lord-border bg-lord-bg px-4 py-2.5 text-sm text-lord-text-main placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-lord-green"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-lord-text-main">Creator Profile URL</label>
+                  <input
+                    type="text"
+                    value={creatorUrl}
+                    onChange={e => setCreatorUrl(e.target.value)}
+                    placeholder="e.g. https://www.linkedin.com/in/johndoe"
+                    className="w-full rounded-xl border border-lord-border bg-lord-bg px-4 py-2.5 text-sm text-lord-text-main placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-lord-green"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Comment Length & Count Configuration (integrated, full width, matching height/border) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-lord-text-main">Creator Profile URL</label>
+                <label className="block text-xs font-bold text-lord-text-main">Comment Length</label>
+                {isEdit && !isTargetModified && (
+                  <p className="text-[10px] text-lord-text-muted mt-0.5 leading-tight">
+                    Locked unless keyword or creator URL is changed.
+                  </p>
+                )}
+                <select
+                  value={commentLength}
+                  onChange={e => setCommentLength(e.target.value)}
+                  disabled={isEdit && !isTargetModified}
+                  className="w-full rounded-xl border border-lord-border bg-lord-bg px-4 py-2.5 text-sm text-lord-text-main focus:outline-none focus:ring-2 focus:ring-lord-green disabled:opacity-50"
+                >
+                  <option value="short">Short (1 sentence)</option>
+                  <option value="medium">Medium (1-2 sentences)</option>
+                  <option value="long">Long (3-4 sentences)</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-lord-text-main">
+                  Comments Per Day (Limit {type === 'creator' ? 1 : 20})
+                </label>
                 <input
-                  type="text"
-                  value={creatorUrl}
-                  onChange={e => setCreatorUrl(e.target.value)}
-                  placeholder="e.g. https://www.linkedin.com/in/johndoe"
-                  className="w-full rounded-xl border border-lord-border bg-lord-bg px-4 py-2.5 text-sm text-lord-text-main placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-lord-green"
+                  type="number"
+                  min="1"
+                  max={type === 'creator' ? "1" : "20"}
+                  value={commentsPerDay}
+                  onChange={e => setCommentsPerDay(e.target.value)}
+                  disabled={type === 'creator'}
+                  className="w-full rounded-xl border border-lord-border bg-lord-bg px-4 py-2.5 text-sm text-lord-text-main focus:outline-none focus:ring-2 focus:ring-lord-green disabled:opacity-50"
                 />
+                {isEdit && isCommentsPerDayChanged && workflow?.commentCount > 0 && (parseInt(commentsPerDay, 10) || 0) < workflow.commentCount && (
+                  <p className="text-[11px] text-lord-red font-bold mt-1 leading-normal">
+                    Limit must be at least {workflow.commentCount} because {workflow.commentCount} posts are already processed.
+                  </p>
+                )}
+                {type === 'keyword' && (parseInt(commentsPerDay, 10) || 0) > 20 && (
+                  <p className="text-[11px] text-lord-red font-bold mt-1 leading-normal">
+                    Comments per day cannot exceed 20.
+                  </p>
+                )}
+                {((parseInt(commentsPerDay, 10) || 0) < 1 && commentsPerDay !== '') && (
+                  <p className="text-[11px] text-lord-red font-bold mt-1 leading-normal">
+                    Comments per day must be at least 1.
+                  </p>
+                )}
               </div>
             </div>
-          )}
 
-          {/* Comment Length & Count Configuration (integrated, full width, matching height/border) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-lord-text-main">Comment Length</label>
-              <select
-                value={commentLength}
-                onChange={e => setCommentLength(e.target.value)}
-                className="w-full rounded-xl border border-lord-border bg-lord-bg px-4 py-2.5 text-sm text-lord-text-main focus:outline-none focus:ring-2 focus:ring-lord-green"
-              >
-                <option value="short">Short (1 sentence)</option>
-                <option value="medium">Medium (1-2 sentences)</option>
-                <option value="long">Long (3-4 sentences)</option>
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-lord-text-main">
-                Comments Per Day (Limit {type === 'creator' ? 1 : 20})
-              </label>
-              <input
-                type="number"
-                min="1"
-                max={type === 'creator' ? "1" : "20"}
-                value={commentsPerDay}
-                onChange={e => setCommentsPerDay(Math.min(type === 'creator' ? 1 : 20, Math.max(1, parseInt(e.target.value, 10) || 1)))}
-                disabled={type === 'creator'}
-                className="w-full rounded-xl border border-lord-border bg-lord-bg px-4 py-2.5 text-sm text-lord-text-main focus:outline-none focus:ring-2 focus:ring-lord-green disabled:opacity-50"
-              />
-            </div>
-          </div>
-
-          {/* Auto Post Toggle (closed box, half width) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-            <div className="flex items-center justify-between p-4 rounded-2xl border border-lord-border bg-lord-card/20">
-              <div className="pr-3">
-                <label className="text-xs font-bold text-lord-text-main block">Auto-Post Comments</label>
-                <p className="text-[10px] text-lord-text-muted mt-0.5 leading-tight">
-                  Automatically post comments once they are approved
-                </p>
+            {/* Auto Post Toggle (closed box, half width) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+              <div className="flex items-center justify-between p-4 rounded-2xl border border-lord-border bg-lord-card/20">
+                <div className="pr-3">
+                  <label className="text-xs font-bold text-lord-text-main block">Auto-Post Comments</label>
+                  <p className="text-[10px] text-lord-text-muted mt-0.5 leading-tight">
+                    Automatically post comments once they are approved
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAutoPost(!autoPost)}
+                  style={{ width: '40px', height: '22px' }}
+                  className={`rounded-full transition-colors relative flex items-center px-0.5 shrink-0 ${autoPost ? 'bg-lord-green' : 'bg-gray-200'
+                    }`}
+                >
+                  <span
+                    style={{
+                      width: '18px',
+                      height: '18px',
+                      transform: autoPost ? 'translateX(18px)' : 'translateX(0px)'
+                    }}
+                    className="rounded-full bg-white transition-transform shadow inline-block"
+                  />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setAutoPost(!autoPost)}
-                style={{ width: '40px', height: '22px' }}
-                className={`rounded-full transition-colors relative flex items-center px-0.5 shrink-0 ${autoPost ? 'bg-lord-green' : 'bg-gray-200'
-                  }`}
-              >
-                <span
-                  style={{
-                    width: '18px',
-                    height: '18px',
-                    transform: autoPost ? 'translateX(18px)' : 'translateX(0px)'
-                  }}
-                  className="rounded-full bg-white transition-transform shadow inline-block"
-                />
-              </button>
             </div>
+
+            {error && <p className="text-xs text-lord-red font-semibold">{error}</p>}
           </div>
 
-          {error && <p className="text-xs text-lord-red font-semibold">{error}</p>}
-        </div>
-
-        {/* Form Buttons */}
-        <div className="flex items-center justify-end gap-3 pt-4 border-t border-lord-border">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-5 py-2.5 rounded-xl border border-lord-border text-sm font-semibold text-lord-text-muted hover:bg-lord-card transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            className="px-6 py-2.5 rounded-xl bg-lord-green text-lord-text-main text-sm font-bold hover:bg-lord-green-dark transition-colors"
-          >
-            {isEdit ? 'Save Changes' : 'Create Workflow'}
-          </button>
+          {/* Form Buttons */}
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-lord-border">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="px-5 py-2.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-[#0A66C2] border border-blue-100/50 text-sm font-bold transition-colors shadow-sm"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              className="px-6 py-2.5 rounded-xl bg-lord-green text-lord-text-main text-sm font-bold hover:bg-lord-green-dark transition-colors"
+            >
+              {isEdit ? 'Save Changes' : 'Create Workflow'}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+
+      {showTargetChangeWarning && (
+        <TargetChangeWarningModal
+          onConfirm={() => {
+            setShowTargetChangeWarning(false);
+            onSave(pendingPayload);
+          }}
+          onCancel={() => {
+            setShowTargetChangeWarning(false);
+            setPendingPayload(null);
+          }}
+        />
+      )}
+    </>
   );
 }
 
 function AutoPostConfirmModal({ workflowName, onConfirm, onCancel }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden border border-lord-border p-6 space-y-4">
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-xl border border-lord-border p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
         <div className="w-12 h-12 rounded-2xl bg-lord-green-light text-lord-green-dark flex items-center justify-center">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
@@ -602,7 +774,8 @@ function AutoPostConfirmModal({ workflowName, onConfirm, onCancel }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -711,13 +884,13 @@ function WorkflowSidebar({ workflow, userId, onClose, setWorkflows }) {
   async function handleApprove(commentId) {
     try {
       const scheduledAt = getScheduledTime(timezone);
-      await workflowApi.updateComment(userId, commentId, { status: 'approved', scheduledAt });
+      await workflowApi.updateComment(userId, commentId, { status: 'scheduled', scheduledAt });
       
-      setComments(prev => prev.map(c => c.id === commentId ? { ...c, status: 'approved', scheduledAt } : c));
+      setComments(prev => prev.map(c => c.id === commentId ? { ...c, status: 'scheduled', scheduledAt } : c));
       
       setWorkflows(prev => prev.map(w => {
         if (w.id === workflow.id) {
-          const updatedComments = (w.comments ?? []).map(c => c.id === commentId ? { ...c, status: 'approved', scheduledAt } : c);
+          const updatedComments = (w.comments ?? []).map(c => c.id === commentId ? { ...c, status: 'scheduled', scheduledAt } : c);
           const updatedPending = (w.pendingComments ?? []).filter(c => c.id !== commentId);
           return {
             ...w,
@@ -732,8 +905,12 @@ function WorkflowSidebar({ workflow, userId, onClose, setWorkflows }) {
     }
   }
 
-  async function handleReject(commentId) {
-    if (!confirm('Are you sure you want to reject this comment draft?')) return;
+  const [rejectCommentId, setRejectCommentId] = useState(null);
+
+  async function confirmRejectComment() {
+    if (!rejectCommentId) return;
+    const commentId = rejectCommentId;
+    setRejectCommentId(null);
     try {
       await workflowApi.updateComment(userId, commentId, { status: 'rejected' });
       
@@ -857,7 +1034,7 @@ function WorkflowSidebar({ workflow, userId, onClose, setWorkflows }) {
                       Approve
                     </button>
                     <button
-                      onClick={() => handleReject(c.id)}
+                      onClick={() => setRejectCommentId(c.id)}
                       className="py-2 px-3 rounded-xl hover:bg-red-50 text-lord-text-muted hover:text-lord-red transition-colors border border-lord-border text-xs font-bold"
                     >
                       Reject
@@ -885,6 +1062,15 @@ function WorkflowSidebar({ workflow, userId, onClose, setWorkflows }) {
         </div>
       </div>
 
+      {rejectCommentId && (
+        <DeleteConfirmModal
+          title="Reject Comment"
+          message="Are you sure you want to reject this comment draft?"
+          onConfirm={confirmRejectComment}
+          onCancel={() => setRejectCommentId(null)}
+        />
+      )}
+
       <style jsx global>{`
         @keyframes slideIn {
           from {
@@ -901,8 +1087,7 @@ function WorkflowSidebar({ workflow, userId, onClose, setWorkflows }) {
     </>
   );
 }
-
-function WorkflowsView({ userId }) {
+function WorkflowsView({ userId, showActionLoader, hideActionLoader }) {
   const router = useRouter();
   const [workflows, setWorkflows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -911,30 +1096,43 @@ function WorkflowsView({ userId }) {
   const [viewState, setViewState] = useState('list'); // 'list' | 'create' | 'edit'
   const [confirmAutoPostWorkflow, setConfirmAutoPostWorkflow] = useState(null);
   const [subTab, setSubTab] = useState('workflows'); // 'workflows' | 'scheduled' | 'posted'
+  const [deleteWorkflowId, setDeleteWorkflowId] = useState(null);
+  const [rejectWorkflowCommentData, setRejectWorkflowCommentData] = useState(null);
+  const searchParams = useSearchParams();
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const sub = params.get('subtab');
+    const tab = searchParams.get('tab');
+    const sub = searchParams.get('subtab');
+
+    if (tab === 'workflows' || !tab) {
       if (sub === 'scheduled') {
         setSubTab('scheduled');
+        setViewState('list');
+        setModalWorkflow(null);
       } else if (sub === 'posted') {
         setSubTab('posted');
+        setViewState('list');
+        setModalWorkflow(null);
       } else {
         setSubTab('workflows');
+        setViewState('list');
+        setModalWorkflow(null);
       }
     }
-  }, [router]);
+  }, [searchParams]);
 
   async function handleToggleAutoPost(wf) {
     if (!wf.autoPost) {
       setConfirmAutoPostWorkflow(wf);
     } else {
       try {
+        showActionLoader('Disabling Auto Post...');
         await workflowApi.update(userId, wf.id, { autoPost: false });
         setWorkflows(prev => prev.map(w => w.id === wf.id ? { ...w, autoPost: false } : w));
       } catch (err) {
         setError(err.message);
+      } finally {
+        hideActionLoader();
       }
     }
   }
@@ -943,6 +1141,7 @@ function WorkflowsView({ userId }) {
     if (!confirmAutoPostWorkflow) return;
     const wf = confirmAutoPostWorkflow;
     try {
+      showActionLoader('Enabling Auto Post...');
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       await workflowApi.update(userId, wf.id, { autoPost: true, timezone });
       setWorkflows(prev => prev.map(w => w.id === wf.id ? { ...w, autoPost: true } : w));
@@ -950,6 +1149,8 @@ function WorkflowsView({ userId }) {
     } catch (err) {
       setError(err.message);
       setConfirmAutoPostWorkflow(null);
+    } finally {
+      hideActionLoader();
     }
   }
 
@@ -974,40 +1175,56 @@ function WorkflowsView({ userId }) {
   async function handleSaveWorkflow(payload) {
     try {
       if (viewState === 'edit' && modalWorkflow && modalWorkflow.id) {
-        // Edit Mode
-        const res = await workflowApi.update(userId, modalWorkflow.id, payload);
-        setWorkflows(prev => prev.map(w => w.id === modalWorkflow.id ? {
-          ...res.data,
-          commentCount: w.commentCount,
-          comments: w.comments,
-          pendingComments: w.pendingComments
-        } : w));
+        showActionLoader('Saving Changes & Updating Comments...');
+        const brandContext = localStorage.getItem('setting_ai_context') ?? '';
+        const tone = localStorage.getItem('setting_ai_tone') ?? 'professional';
+        const avoid = localStorage.getItem('setting_ai_avoid') ?? '';
+        const res = await workflowApi.update(userId, modalWorkflow.id, { ...payload, brandContext, tone, avoid });
+
+        setWorkflows(prev => prev.map(w => w.id === modalWorkflow.id ? res.data : w));
       } else {
-        // Create Mode
-        const res = await workflowApi.create(userId, payload);
+        showActionLoader('Creating Workflow & Generating Comments...');
+        const brandContext = localStorage.getItem('setting_ai_context') ?? '';
+        const tone = localStorage.getItem('setting_ai_tone') ?? 'professional';
+        const avoid = localStorage.getItem('setting_ai_avoid') ?? '';
+        const res = await workflowApi.create(userId, { ...payload, brandContext, tone, avoid });
         setWorkflows(prev => [res.data, ...prev]);
       }
       setViewState('list');
       setModalWorkflow(null);
     } catch (err) {
       setError(err.message);
+    } finally {
+      hideActionLoader();
     }
   }
 
-  async function handleDelete(id) {
-    if (!confirm('Are you sure you want to delete this workflow? All associated comments will be lost.')) return;
+  function handleDelete(id) {
+    setDeleteWorkflowId(id);
+  }
+
+  async function confirmDeleteWorkflow() {
+    if (!deleteWorkflowId) return;
+    const id = deleteWorkflowId;
+    setDeleteWorkflowId(null);
     try {
+      showActionLoader('Deleting Workflow...');
       await workflowApi.remove(userId, id);
       setWorkflows(prev => prev.filter(w => w.id !== id));
     } catch (err) {
       setError(err.message);
+    } finally {
+      hideActionLoader();
     }
   }
 
   async function handleApproveWorkflowComment(workflowId, commentId) {
     if (!userId) return;
     try {
-      await workflowApi.updateComment(userId, commentId, { status: 'approved' });
+      showActionLoader('Approving & Scheduling Comment...');
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const scheduledAt = getScheduledTime(timezone);
+      await workflowApi.updateComment(userId, commentId, { status: 'scheduled', scheduledAt });
       setWorkflows(prev => prev.map(w => {
         if (w.id === workflowId) {
           const updatedPending = (w.pendingComments ?? []).filter(c => c.id !== commentId);
@@ -1019,13 +1236,21 @@ function WorkflowsView({ userId }) {
       router.push('/engage?tab=workflows&subtab=scheduled');
     } catch (err) {
       setError(err.message);
+    } finally {
+      hideActionLoader();
     }
   }
 
-  async function handleRejectWorkflowComment(workflowId, commentId) {
-    if (!userId) return;
-    if (!confirm('Are you sure you want to reject this comment draft?')) return;
+  function handleRejectWorkflowComment(workflowId, commentId) {
+    setRejectWorkflowCommentData({ workflowId, commentId });
+  }
+
+  async function confirmRejectWorkflowComment() {
+    if (!rejectWorkflowCommentData) return;
+    const { workflowId, commentId } = rejectWorkflowCommentData;
+    setRejectWorkflowCommentData(null);
     try {
+      showActionLoader('Rejecting Comment...');
       await workflowApi.updateComment(userId, commentId, { status: 'rejected' });
       setWorkflows(prev => prev.map(w => {
         if (w.id === workflowId) {
@@ -1042,6 +1267,8 @@ function WorkflowsView({ userId }) {
       }));
     } catch (err) {
       setError(err.message);
+    } finally {
+      hideActionLoader();
     }
   }
 
@@ -1176,25 +1403,13 @@ function WorkflowsView({ userId }) {
                             </span>
                           </td>
                           <td className="px-5 py-4 align-middle whitespace-nowrap">
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => handleToggleAutoPost(wf)}
-                                style={{ width: '32px', height: '18px' }}
-                                className={`rounded-full transition-colors relative flex items-center px-0.5 shrink-0 ${wf.autoPost ? 'bg-lord-green' : 'bg-gray-200'
-                                  }`}
-                              >
-                                <span
-                                  style={{
-                                    width: '14px',
-                                    height: '14px',
-                                    transform: wf.autoPost ? 'translateX(14px)' : 'translateX(0px)'
-                                  }}
-                                  className="rounded-full bg-white transition-transform shadow inline-block"
-                                />
-                              </button>
-                              <span className="text-xs font-bold text-lord-text-muted">{wf.autoPost ? 'On' : 'Off'}</span>
-                            </div>
+                            <span className={`px-2.5 py-0.5 rounded-full border text-xs font-bold ${
+                              wf.autoPost
+                                ? 'bg-lord-green-light text-lord-green-dark border-lord-green-dark/20'
+                                : 'bg-gray-50 text-gray-500 border-gray-200/60'
+                            }`}>
+                              {wf.autoPost ? 'On' : 'Off'}
+                            </span>
                           </td>
                           <td className="px-5 py-4 align-middle">
                             {latestComment ? (
@@ -1250,13 +1465,31 @@ function WorkflowsView({ userId }) {
               onCancel={() => setConfirmAutoPostWorkflow(null)}
             />
           )}
+
+          {deleteWorkflowId && (
+            <DeleteConfirmModal
+              title="Delete Workflow"
+              message="Are you sure you want to delete this workflow? All associated comments will be lost."
+              onConfirm={confirmDeleteWorkflow}
+              onCancel={() => setDeleteWorkflowId(null)}
+            />
+          )}
+
+          {rejectWorkflowCommentData && (
+            <DeleteConfirmModal
+              title="Reject Comment"
+              message="Are you sure you want to reject this comment draft?"
+              onConfirm={confirmRejectWorkflowComment}
+              onCancel={() => setRejectWorkflowCommentData(null)}
+            />
+          )}
         </>
       )}
     </div>
   );
 }
 
-function CommentsView({ userId }) {
+function CommentsView({ userId, showActionLoader, hideActionLoader }) {
   const router = useRouter();
   const [comments, setComments] = useState([]);
   const [allComments, setAllComments] = useState([]);
@@ -1272,6 +1505,7 @@ function CommentsView({ userId }) {
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
+  const [deleteCommentId, setDeleteCommentId] = useState(null);
 
   useEffect(() => {
     setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);
@@ -1334,20 +1568,22 @@ function CommentsView({ userId }) {
 
   async function handleApprove(commentId) {
     try {
+      showActionLoader('Approving & Scheduling Comment...');
       const scheduledAt = getScheduledTime(timezone);
-      await workflowApi.updateComment(userId, commentId, { status: 'approved', scheduledAt });
-      setAllComments(prev => prev.map(c => c.id === commentId ? { ...c, status: 'approved', scheduledAt } : c));
-      router.push('/engage?tab=workflows&subtab=scheduled');
+      await workflowApi.updateComment(userId, commentId, { status: 'scheduled', scheduledAt });
+      setAllComments(prev => prev.map(c => c.id === commentId ? { ...c, status: 'scheduled', scheduledAt } : c));
     } catch (err) {
       setError(err.message);
+    } finally {
+      hideActionLoader();
     }
   }
 
   async function handlePostNow(commentId) {
     const comment = allComments.find(c => c.id === commentId);
     if (!comment) return;
-    setPosting(p => ({ ...p, [commentId]: true }));
     try {
+      showActionLoader('Posting to LinkedIn...');
       const res = await fetch('/api/linkedin/comments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1362,17 +1598,26 @@ function CommentsView({ userId }) {
       await workflowApi.updateComment(userId, commentId, { status: 'failed', errorMessage: err.message });
       setAllComments(prev => prev.map(c => c.id === commentId ? { ...c, status: 'failed', errorMessage: err.message } : c));
     } finally {
-      setPosting(p => ({ ...p, [commentId]: false }));
+      hideActionLoader();
     }
   }
 
-  async function handleDelete(commentId) {
-    if (!confirm('Are you sure you want to reject and delete this comment draft?')) return;
+  function handleDelete(commentId) {
+    setDeleteCommentId(commentId);
+  }
+
+  async function confirmDeleteComment() {
+    if (!deleteCommentId) return;
+    const commentId = deleteCommentId;
+    setDeleteCommentId(null);
     try {
+      showActionLoader('Rejecting & Deleting Comment...');
       await workflowApi.removeComment(userId, commentId);
       setAllComments(prev => prev.filter(c => c.id !== commentId));
     } catch (err) {
       setError(err.message);
+    } finally {
+      hideActionLoader();
     }
   }
 
@@ -1441,17 +1686,19 @@ function CommentsView({ userId }) {
             className="px-3 py-2 rounded-xl border border-lord-border bg-lord-bg text-sm text-lord-text-main font-medium focus:outline-none focus:border-lord-teal focus:ring-1 focus:ring-lord-teal/20"
           />
         </div>
-        {hasActiveFilters && (
-          <button
-            onClick={clearFilters}
-            className="px-3 py-2 rounded-xl border border-lord-border text-xs font-bold text-lord-text-muted hover:text-lord-red hover:border-lord-red/30 transition-colors"
-          >
-            Clear Filters
-          </button>
-        )}
-        <p className="text-[11px] text-lord-text-muted font-medium ml-auto">
-          Showing {comments.length} of {allComments.length} comments
-        </p>
+        <div className="ml-auto flex flex-col items-end gap-1.5">
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              className="px-3.5 py-1.5 rounded-xl bg-lord-green text-lord-text-main hover:bg-lord-green/90 text-xs font-bold transition-all shadow-sm"
+            >
+              Clear Filters
+            </button>
+          )}
+          <p className="text-[11px] text-lord-text-muted font-medium">
+            Showing {comments.length} of {allComments.length} comments
+          </p>
+        </div>
       </div>
 
       {error && <div className="p-4 rounded-2xl bg-red-50 border border-red-100 text-red-600 text-sm">{error}</div>}
@@ -1479,9 +1726,10 @@ function CommentsView({ userId }) {
                   <th className="px-5 py-4">Workflow</th>
                   <th className="px-5 py-4">Target Post</th>
                   <th className="px-5 py-4">Draft Comment</th>
-                  <th className="px-5 py-4">Status / Stats</th>
-                  <th className="px-5 py-4">Generated Date</th>
-                  <th className="px-5 py-4 text-right">Actions</th>
+                  <th className="px-5 py-4 text-center">Status / Stats</th>
+                  <th className="px-5 py-4 text-center">Generated Date</th>
+                  <th className="px-5 py-4 text-center">Posting Date</th>
+                  <th className="px-5 py-4 text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-lord-border text-sm">
@@ -1512,35 +1760,48 @@ function CommentsView({ userId }) {
                           </button>
                         )}
                       </td>
-                      <td className="px-5 py-4 align-top whitespace-nowrap space-y-1">
-                        <StatusBadge status={c.status} />
-                        {c.status === 'approved' && c.scheduledAt && (
-                          <p className="text-[10px] text-lord-teal font-medium">
-                            Scheduled: {formatDate(c.scheduledAt)}
-                          </p>
-                        )}
-                        {c.status === 'posted' && c.postedAt && (
-                          <p className="text-[10px] text-lord-green-dark font-medium">
-                            Posted: {formatDate(c.postedAt)}
-                          </p>
-                        )}
-                        {c.status === 'failed' && c.errorMessage && (
-                          <p className="text-[10px] text-lord-red font-medium max-w-[140px] truncate" title={c.errorMessage}>
-                            {c.errorMessage}
-                          </p>
+                      <td className="px-5 py-4 align-middle whitespace-nowrap text-center">
+                        <div className="flex flex-col items-center justify-center space-y-1">
+                          <StatusBadge status={c.status} />
+                          {c.status === 'failed' && c.errorMessage && (
+                            <p className="text-[12px] text-lord-red font-semibold max-w-[140px] truncate mx-auto" title={c.errorMessage}>
+                              {c.errorMessage}
+                            </p>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 align-middle whitespace-nowrap text-center">
+                        <div className="flex flex-col items-center">
+                          <span className="text-[13px] font-bold text-lord-text-main">
+                            {new Date(c.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </span>
+                          <span className="text-[11px] text-lord-text-muted font-semibold">
+                            {new Date(c.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 align-middle whitespace-nowrap text-center">
+                        {c.scheduledAt ? (
+                          <div className="flex flex-col items-center">
+                            <span className="text-[13px] font-bold text-lord-text-main">
+                              {new Date(c.scheduledAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </span>
+                            <span className="text-[11px] text-lord-teal font-semibold">
+                              {new Date(c.scheduledAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-[12px] text-lord-text-muted">—</span>
                         )}
                       </td>
-                      <td className="px-5 py-4 align-top text-xs text-lord-text-muted whitespace-nowrap">
-                        {formatDate(c.createdAt)}
-                      </td>
-                      <td className="px-5 py-4 align-top text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="px-5 py-4 align-middle text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-2">
                           {c.postUrl && (
                             <a
                               href={c.postUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="px-2.5 py-1.5 rounded-lg border border-lord-border text-xs font-semibold text-lord-text-muted hover:text-lord-teal hover:border-lord-teal transition-colors"
+                              className="px-3.5 py-2 rounded-xl bg-blue-50 text-[#0A66C2] hover:bg-blue-100 border border-blue-100/50 font-bold text-[13px] transition-colors shadow-sm"
                               title="View post link ↗"
                             >
                               Link
@@ -1549,7 +1810,7 @@ function CommentsView({ userId }) {
                           {c.status === 'pending' && (
                             <button
                               onClick={() => handleApprove(c.id)}
-                              className="px-2.5 py-1.5 rounded-lg bg-lord-green text-lord-text-main text-xs font-bold hover:bg-lord-green-dark transition-colors"
+                              className="px-3.5 py-2 rounded-xl bg-lord-green text-lord-text-main text-[13px] font-bold hover:bg-lord-green-dark transition-colors shadow-sm"
                             >
                               Approve
                             </button>
@@ -1558,19 +1819,17 @@ function CommentsView({ userId }) {
                             <button
                               onClick={() => handlePostNow(c.id)}
                               disabled={posting[c.id]}
-                              className="px-2.5 py-1.5 rounded-lg bg-lord-teal text-white text-xs font-bold hover:bg-lord-teal-dark transition-colors disabled:opacity-50"
+                              className="px-3.5 py-2 rounded-xl bg-[#0A66C2] text-white text-[13px] font-bold hover:bg-[#004182] transition-colors disabled:opacity-50 shadow-sm"
                             >
                               {posting[c.id] ? 'Posting' : 'Post Now'}
                             </button>
                           )}
                           <button
                             onClick={() => handleDelete(c.id)}
-                            className="p-1.5 rounded-lg hover:bg-red-50 text-lord-text-muted hover:text-lord-red transition-colors border border-lord-border"
+                            className="px-3.5 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/60 text-[13px] font-bold transition-colors shadow-sm"
                             title="Reject and delete"
                           >
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                            </svg>
+                            Reject
                           </button>
                         </div>
                       </td>
@@ -1581,6 +1840,15 @@ function CommentsView({ userId }) {
             </table>
           </div>
         </div>
+      )}
+
+      {deleteCommentId && (
+        <DeleteConfirmModal
+          title="Reject & Delete Comment"
+          message="Are you sure you want to reject and delete this comment draft?"
+          onConfirm={confirmDeleteComment}
+          onCancel={() => setDeleteCommentId(null)}
+        />
       )}
     </div>
   );
@@ -1865,6 +2133,18 @@ export default function EngagePage() {
   const [userId, setUserId] = useState(null);
   const router = useRouter();
 
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionMessage, setActionMessage] = useState('');
+
+  const showActionLoader = (msg) => {
+    setActionMessage(msg);
+    setActionLoading(true);
+  };
+  const hideActionLoader = () => {
+    setActionLoading(false);
+    setActionMessage('');
+  };
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab');
@@ -1942,10 +2222,24 @@ export default function EngagePage() {
       {/* Main Content Area */}
       <div className="flex-1 min-w-0">
         {activeMenu === 'analytics' && <AnalyticsView userId={userId} />}
-        {activeMenu === 'workflows' && <WorkflowsView userId={userId} />}
-        {activeMenu === 'comments' && <CommentsView userId={userId} />}
+        {activeMenu === 'workflows' && (
+          <WorkflowsView 
+            userId={userId} 
+            showActionLoader={showActionLoader} 
+            hideActionLoader={hideActionLoader} 
+          />
+        )}
+        {activeMenu === 'comments' && (
+          <CommentsView 
+            userId={userId} 
+            showActionLoader={showActionLoader} 
+            hideActionLoader={hideActionLoader} 
+          />
+        )}
         {activeMenu === 'engage' && <SearchTab />}
       </div>
+
+      {actionLoading && <ActionLoader message={actionMessage} />}
     </div>
   );
 }
@@ -1956,6 +2250,7 @@ function ScheduledPostsView({ userId }) {
   const [error, setError] = useState('');
   const [posting, setPosting] = useState({});
   const [expandedCommentId, setExpandedCommentId] = useState(null);
+  const [deleteScheduledCommentId, setDeleteScheduledCommentId] = useState(null);
 
   useEffect(() => {
     if (!userId) return;
@@ -1993,8 +2288,14 @@ function ScheduledPostsView({ userId }) {
     }
   }
 
-  async function handleDelete(commentId) {
-    if (!confirm('Are you sure you want to cancel and delete this scheduled post?')) return;
+  function handleDelete(commentId) {
+    setDeleteScheduledCommentId(commentId);
+  }
+
+  async function confirmDeleteScheduledComment() {
+    if (!deleteScheduledCommentId) return;
+    const commentId = deleteScheduledCommentId;
+    setDeleteScheduledCommentId(null);
     try {
       await workflowApi.removeComment(userId, commentId);
       setComments(prev => prev.filter(c => c.id !== commentId));
@@ -2038,9 +2339,9 @@ function ScheduledPostsView({ userId }) {
                   <th className="px-5 py-4">Workflow</th>
                   <th className="px-5 py-4">Target Post</th>
                   <th className="px-5 py-4">Draft Comment</th>
-                  <th className="px-5 py-4">Scheduled For</th>
-                  <th className="px-5 py-4">Status</th>
-                  <th className="px-5 py-4 text-right">Actions</th>
+                  <th className="px-5 py-4 text-center">Scheduled For</th>
+                  <th className="px-5 py-4 text-center">Status</th>
+                  <th className="px-5 py-4 text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-lord-border text-sm">
@@ -2071,20 +2372,20 @@ function ScheduledPostsView({ userId }) {
                           </button>
                         )}
                       </td>
-                      <td className="px-5 py-4 align-top whitespace-nowrap text-sm text-lord-teal font-bold">
+                      <td className="px-5 py-4 align-middle whitespace-nowrap text-[13px] text-lord-teal font-bold text-center">
                         {c.scheduledAt ? formatDate(c.scheduledAt) : 'Pending scheduling'}
                       </td>
-                      <td className="px-5 py-4 align-top whitespace-nowrap">
+                      <td className="px-5 py-4 align-middle whitespace-nowrap text-center">
                         <StatusBadge status={c.status} />
                       </td>
-                      <td className="px-5 py-4 align-top text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="px-5 py-4 align-middle text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-2">
                           {c.postUrl && (
                             <a
                               href={c.postUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="px-2.5 py-1.5 rounded-lg border border-lord-border text-xs font-semibold text-lord-text-muted hover:text-lord-teal hover:border-lord-teal transition-colors"
+                              className="px-3.5 py-2 rounded-xl bg-blue-50 text-[#0A66C2] hover:bg-blue-100 border border-blue-100/50 font-bold text-[13px] transition-colors shadow-sm"
                               title="View post link ↗"
                             >
                               Link
@@ -2093,18 +2394,16 @@ function ScheduledPostsView({ userId }) {
                           <button
                             onClick={() => handlePostNow(c.id)}
                             disabled={posting[c.id]}
-                            className="px-2.5 py-1.5 rounded-lg bg-lord-teal text-white text-xs font-bold hover:bg-lord-teal-dark transition-colors disabled:opacity-50"
+                            className="px-3.5 py-2 rounded-xl bg-[#0A66C2] text-white text-[13px] font-bold hover:bg-[#004182] transition-colors disabled:opacity-50 shadow-sm"
                           >
                             {posting[c.id] ? 'Posting' : 'Post Now'}
                           </button>
                           <button
                             onClick={() => handleDelete(c.id)}
-                            className="p-1.5 rounded-lg hover:bg-red-50 text-lord-text-muted hover:text-[#f43f5e] transition-colors border border-lord-border"
+                            className="px-3.5 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/60 text-[13px] font-bold transition-colors shadow-sm"
                             title="Reject and delete"
                           >
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                            </svg>
+                            Reject
                           </button>
                         </div>
                       </td>
@@ -2115,6 +2414,15 @@ function ScheduledPostsView({ userId }) {
             </table>
           </div>
         </div>
+      )}
+
+      {deleteScheduledCommentId && (
+        <DeleteConfirmModal
+          title="Delete Scheduled Comment"
+          message="Are you sure you want to cancel and delete this scheduled post?"
+          onConfirm={confirmDeleteScheduledComment}
+          onCancel={() => setDeleteScheduledCommentId(null)}
+        />
       )}
     </div>
   );

@@ -6,6 +6,8 @@ import commentsRouter from './routes/comments.js';
 import analyticsRouter from './routes/analytics.js';
 import { prisma } from './prisma.js';
 import { startCronJobs } from './cron/index.js';
+import { runSchedulerJob } from './cron/scheduler.js';
+import { runExecutorJob } from './cron/executor.js';
 
 const app = express();
 const PORT = process.env.PORT ?? 4000;
@@ -22,7 +24,27 @@ app.use(cors({
   credentials: true,
 }));
 
+
 app.use(express.json());
+
+// Endpoints to trigger cron jobs on demand (or via Vercel Crons)
+app.get('/cron/scheduler', async (req, res) => {
+  try {
+    await runSchedulerJob();
+    res.json({ success: true, message: 'Scheduler job triggered successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/cron/executor', async (req, res) => {
+  try {
+    await runExecutorJob();
+    res.json({ success: true, message: 'Executor job triggered successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Auth middleware — require x-user-id on all /workflows, /comments and /analytics routes
 app.use(['/workflows', '/comments', '/analytics'], (req, res, next) => {

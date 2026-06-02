@@ -1,8 +1,10 @@
 'use client';
 
 import { use, useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { workflowApi } from '@/lib/workflowApi';
+import ActionLoader from '@/components/ActionLoader';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -81,9 +83,51 @@ function StatusBadge({ status }) {
   };
   const s = map[status] ?? map.pending;
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full border text-xs font-bold ${s.cls}`}>
+    <span className={`inline-flex items-center px-3 py-1 rounded-full border text-[13px] font-bold ${s.cls}`}>
       {s.label}
     </span>
+  );
+}
+
+function DeleteConfirmModal({ title, message, onConfirm, onCancel }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-xl border border-lord-border p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+        <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6" /><path d="M14 11v6" />
+          </svg>
+        </div>
+        <div className="space-y-1.5">
+          <h3 className="text-base font-bold text-lord-text-main">{title || 'Confirm Action'}</h3>
+          <p className="text-xs text-lord-text-muted leading-relaxed">
+            {message || 'Are you sure you want to proceed?'}
+          </p>
+        </div>
+        <div className="flex items-center gap-3 pt-2">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-2.5 rounded-xl border border-lord-border text-xs font-bold text-lord-text-muted hover:bg-lord-card transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-xs font-bold hover:bg-red-700 transition-colors shadow-sm"
+          >
+            Confirm
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 }
 
@@ -192,7 +236,19 @@ export default function WorkflowCommentsPage({ params }) {
   const [genError, setGenError] = useState('');
   const [posting, setPosting] = useState({});
   const [timezone, setTimezone] = useState('UTC');
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionMessage, setActionMessage] = useState('');
   const [expandedCommentId, setExpandedCommentId] = useState(null);
+  const [deleteCommentId, setDeleteCommentId] = useState(null);
+
+  const showActionLoader = (msg) => {
+    setActionMessage(msg);
+    setActionLoading(true);
+  };
+  const hideActionLoader = () => {
+    setActionLoading(false);
+    setActionMessage('');
+  };
 
   // keep a ref so the auto-poster interval always sees the latest comments
   const commentsRef = useRef(comments);
@@ -205,6 +261,18 @@ export default function WorkflowCommentsPage({ params }) {
       .then(async d => {
         if (!d.userId) { router.push('/engage?tab=workflows'); return; }
         setUserId(d.userId);
+
+        // Run the scheduler job immediately for this workflow in background (do not block render)
+        try {
+          const brandContext = localStorage.getItem('setting_ai_context') ?? '';
+          const tone = localStorage.getItem('setting_ai_tone') ?? 'professional';
+          const avoid = localStorage.getItem('setting_ai_avoid') ?? '';
+          workflowApi.run(d.userId, id, { brandContext, tone, avoid })
+            .catch(runErr => console.error('[Workflow Run Error]', runErr));
+        } catch (err) {
+          console.error('[Workflow Run Settings Error]', err);
+        }
+
         const [wfRes, cmRes] = await Promise.all([
           workflowApi.list(d.userId),
           workflowApi.listComments(d.userId, id),
@@ -332,11 +400,14 @@ export default function WorkflowCommentsPage({ params }) {
   async function approveComment(commentId) {
     if (!userId) return;
     try {
-      await workflowApi.updateComment(userId, commentId, { status: 'approved' });
-      setComments(prev => prev.map(c => c.id === commentId ? { ...c, status: 'approved', scheduledAt: null } : c));
-      router.push('/engage?tab=workflows&subtab=scheduled');
+      showActionLoader('Approving & Scheduling Comment...');
+      const scheduledAt = getScheduledTime(timezone);
+      await workflowApi.updateComment(userId, commentId, { status: 'scheduled', scheduledAt });
+      router.push('/engage?tab=comments&subtab=scheduled');
     } catch (err) {
       console.error(err);
+    } finally {
+      hideActionLoader();
     }
   }
 
@@ -344,8 +415,8 @@ export default function WorkflowCommentsPage({ params }) {
     if (!userId) return;
     const comment = comments.find(c => c.id === commentId);
     if (!comment) return;
-    setPosting(p => ({ ...p, [commentId]: true }));
     try {
+      showActionLoader('Posting to LinkedIn...');
       const res = await fetch('/api/linkedin/comments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -360,18 +431,26 @@ export default function WorkflowCommentsPage({ params }) {
       await workflowApi.updateComment(userId, commentId, { status: 'failed', errorMessage: err.message });
       setComments(prev => prev.map(c => c.id === commentId ? { ...c, status: 'failed', errorMessage: err.message } : c));
     } finally {
-      setPosting(p => ({ ...p, [commentId]: false }));
+      hideActionLoader();
     }
   }
 
-  async function deleteComment(commentId) {
-    if (!userId) return;
-    if (!confirm('Are you sure you want to reject this comment draft?')) return;
+  function deleteComment(commentId) {
+    setDeleteCommentId(commentId);
+  }
+
+  async function confirmDeleteComment() {
+    if (!deleteCommentId || !userId) return;
+    const commentId = deleteCommentId;
+    setDeleteCommentId(null);
     try {
+      showActionLoader('Rejecting Comment...');
       await workflowApi.updateComment(userId, commentId, { status: 'rejected' });
       setComments(prev => prev.map(c => c.id === commentId ? { ...c, status: 'rejected' } : c));
     } catch (err) {
       console.error(err);
+    } finally {
+      hideActionLoader();
     }
   }
 
@@ -477,23 +556,6 @@ export default function WorkflowCommentsPage({ params }) {
               }
             </p>
           </div>
-          <button
-            onClick={generateComments}
-            disabled={generating}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0A66C2] text-white text-[13px] font-semibold hover:bg-[#004182] transition-colors disabled:opacity-50 flex-shrink-0"
-          >
-            {generating ? (
-              <>
-                <svg className="animate-spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
-                Generating…
-              </>
-            ) : (
-              <>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>
-                Generate Comments
-              </>
-            )}
-          </button>
         </div>
 
         {/* Stats row */}
@@ -515,18 +577,6 @@ export default function WorkflowCommentsPage({ params }) {
           <div className="p-4 rounded-2xl bg-red-50 border border-red-100 text-sm text-red-600">{genError}</div>
         )}
 
-        {/* Scheduling notice */}
-        {scheduled > 0 && (
-          <div className="p-3.5 rounded-xl bg-[#0A66C2]/5 border border-[#0A66C2]/15 flex items-start gap-2.5">
-            <svg className="mt-0.5 flex-shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0A66C2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-            </svg>
-            <p className="text-[12px] text-[#0A66C2] font-medium">
-              {scheduled} comment{scheduled !== 1 ? 's' : ''} scheduled. Keep this tab open — auto-posting checks every 30 seconds.
-            </p>
-          </div>
-        )}
-
         {/* Empty state */}
         {comments.length === 0 && !generating && (
           <div className="bg-lord-card rounded-2xl border border-lord-border p-12 text-center">
@@ -536,7 +586,7 @@ export default function WorkflowCommentsPage({ params }) {
               </svg>
             </div>
             <p className="text-sm font-semibold text-lord-text-main">No comments yet</p>
-            <p className="text-xs text-lord-text-muted mt-1">Click "Generate Comments" to search for posts and create AI-drafted comments</p>
+            <p className="text-xs text-lord-text-muted mt-1">The background scheduler will automatically fetch LinkedIn posts and generate comment drafts.</p>
           </div>
         )}
 
@@ -549,9 +599,9 @@ export default function WorkflowCommentsPage({ params }) {
                   <tr className="border-b border-lord-border bg-lord-card text-xs font-bold text-lord-text-muted uppercase tracking-wider">
                     <th className="px-5 py-4">Target Post</th>
                     <th className="px-5 py-4">Draft Comment</th>
-                    <th className="px-5 py-4">Scheduled For</th>
-                    <th className="px-5 py-4">Status</th>
-                    <th className="px-5 py-4 text-right">Actions</th>
+                    <th className="px-5 py-4 text-center">Scheduled For</th>
+                    <th className="px-5 py-4 text-center">Status</th>
+                    <th className="px-5 py-4 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-lord-border text-sm">
@@ -575,7 +625,7 @@ export default function WorkflowCommentsPage({ params }) {
                               href={c.postUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-xs text-[#0A66C2] font-semibold hover:underline mt-1.5 inline-flex items-center gap-0.5"
+                              className="px-3.5 py-2 rounded-xl bg-blue-50 text-[#0A66C2] hover:bg-blue-100 border border-blue-100/50 font-bold text-[13px] transition-colors shadow-sm mt-2 inline-flex items-center gap-0.5"
                             >
                               View Post ↗
                             </a>
@@ -589,54 +639,56 @@ export default function WorkflowCommentsPage({ params }) {
                             {isLong && (
                               <button
                                 onClick={() => setExpandedCommentId(isExpanded ? null : c.id)}
-                                className="text-xs text-lord-teal font-bold hover:underline mt-1.5 block"
+                                className="text-[12px] text-lord-teal font-bold hover:underline mt-1.5 block"
                               >
                                 {isExpanded ? 'Show less' : 'Read more'}
                               </button>
                             )}
                           </div>
                         </td>
-                        <td className="px-5 py-4 align-middle whitespace-nowrap text-sm text-lord-teal font-bold">
+                        <td className="px-5 py-4 align-middle whitespace-nowrap text-sm text-lord-teal font-bold text-center">
                           {c.scheduledAt ? (
                             formatScheduled(c.scheduledAt, timezone)
                           ) : c.status === 'approved' ? (
-                            <span className="text-amber-600 font-semibold animate-pulse text-xs">Scheduling...</span>
+                            <span className="text-amber-600 font-semibold animate-pulse text-[13px]">Scheduling...</span>
                           ) : c.postedAt ? (
-                            <span className="text-emerald-700 font-semibold text-xs">Posted {timeAgo(c.postedAt)}</span>
+                            <span className="text-emerald-700 font-semibold text-[13px]">Posted {timeAgo(c.postedAt)}</span>
                           ) : (
                             'N/A'
                           )}
                         </td>
-                        <td className="px-5 py-4 align-middle whitespace-nowrap space-y-1">
-                          <StatusBadge status={c.status} />
-                          {c.status === 'failed' && c.errorMessage && (
-                            <p className="text-xs text-lord-red font-medium leading-tight max-w-[150px] truncate" title={c.errorMessage}>
-                              Error: {c.errorMessage}
-                            </p>
-                          )}
+                        <td className="px-5 py-4 align-middle whitespace-nowrap text-center">
+                          <div className="flex flex-col items-center justify-center space-y-1">
+                            <StatusBadge status={c.status} />
+                            {c.status === 'failed' && c.errorMessage && (
+                              <p className="text-[12px] text-lord-red font-semibold leading-tight max-w-[150px] truncate mx-auto" title={c.errorMessage}>
+                                Error: {c.errorMessage}
+                              </p>
+                            )}
+                          </div>
                         </td>
-                        <td className="px-5 py-4 align-middle text-right whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-2">
+                        <td className="px-5 py-4 align-middle text-center whitespace-nowrap">
+                          <div className="flex items-center justify-center gap-2">
                             {c.status === 'pending' && (
                               <button
                                 onClick={() => approveComment(c.id)}
-                                className="px-3 py-1.5 rounded-lg bg-lord-green text-lord-text-main text-xs font-bold hover:bg-lord-green-dark transition-colors shadow-sm"
+                                className="px-3.5 py-2 rounded-xl bg-lord-green text-lord-text-main text-[13px] font-bold hover:bg-lord-green-dark transition-colors shadow-sm"
                               >
                                 Approve
                               </button>
                             )}
-                            {c.status === 'approved' && (
+                            {(c.status === 'approved' || c.status === 'scheduled') && (
                               <button
                                 onClick={() => postNow(c.id)}
                                 disabled={!!posting[c.id]}
-                                className="px-3 py-1.5 rounded-lg bg-[#0A66C2] text-white text-xs font-bold hover:bg-[#004182] transition-colors disabled:opacity-50 shadow-sm"
+                                className="px-3.5 py-2 rounded-xl bg-[#0A66C2] text-white text-[13px] font-bold hover:bg-[#004182] transition-colors disabled:opacity-50 shadow-sm"
                               >
                                 {posting[c.id] ? 'Posting' : 'Post Now'}
                               </button>
                             )}
                             <button
                               onClick={() => deleteComment(c.id)}
-                              className="px-3 py-1.5 rounded-lg hover:bg-red-50 text-lord-text-muted hover:text-lord-red transition-colors border border-lord-border text-xs font-bold shadow-sm"
+                              className="px-3.5 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/60 text-[13px] font-bold transition-colors shadow-sm"
                               title="Reject and delete"
                             >
                               Reject
@@ -652,6 +704,17 @@ export default function WorkflowCommentsPage({ params }) {
           </div>
         )}
       </div>
+
+      {deleteCommentId && (
+        <DeleteConfirmModal
+          title="Reject Comment"
+          message="Are you sure you want to reject this comment draft?"
+          onConfirm={confirmDeleteComment}
+          onCancel={() => setDeleteCommentId(null)}
+        />
+      )}
+
+      {actionLoading && <ActionLoader message={actionMessage} />}
     </div>
   );
 }

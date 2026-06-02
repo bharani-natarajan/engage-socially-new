@@ -1,35 +1,27 @@
 import { prisma } from '../prisma.js';
 
-export async function runSchedulerJob() {
-  console.log('[Scheduler Cron] Running approved comments scheduler check...');
-  try {
-    // Find comments that are marked as 'approved' (meaning the user approved them, but they haven't been scheduled yet)
-    const approvedComments = await prisma.workflowComment.findMany({
-      where: { status: 'approved' },
-      include: { workflow: true }
-    });
-
-    if (approvedComments.length === 0) return;
-
-    console.log(`[Scheduler Cron] Found ${approvedComments.length} approved comments to schedule.`);
-
-    for (const comment of approvedComments) {
-      // Calculate a random time between 9 AM and 9 PM IST
-      const scheduledTime = getScheduledTimeInIST();
-      
-      await prisma.workflowComment.update({
-        where: { id: comment.id },
-        data: {
-          status: 'scheduled',
-          scheduledAt: scheduledTime
-        }
-      });
-
-      console.log(`[Scheduler Cron] Comment ${comment.id} successfully scheduled for ${scheduledTime.toISOString()} (UTC) / IST target.`);
-    }
-  } catch (err) {
-    console.error('[Scheduler Cron Error]', err);
-  }
+/**
+ * Normalizes a search post from Unipile to a consistent format.
+ */
+function normalizeSearchPost(post) {
+  const author = post.author ?? post.actor ?? {};
+  return {
+    id: post.social_id ?? post.id ?? '',
+    text: post.text ?? '',
+    author: {
+      name: author.name ?? author.full_name ?? 'LinkedIn Member',
+      headline: author.headline ?? '',
+      profile_url: author.public_identifier
+        ? `https://www.linkedin.com/in/${author.public_identifier}`
+        : null,
+      avatar_url: author.profile_picture_url ?? null,
+    },
+    share_url: post.share_url ?? post.url ?? null,
+    reaction_count: post.reaction_count ?? post.reaction_counter ?? 0,
+    comment_count: post.comment_count ?? post.comment_counter ?? 0,
+    timestamp: post.date ?? post.created_at ?? null,
+    media_url: post.attachments?.[0]?.url ?? null,
+  };
 }
 
 /**
@@ -37,7 +29,7 @@ export async function runSchedulerJob() {
  * If the current time is already past 9 PM IST, it schedules for tomorrow.
  * Otherwise, it schedules for a random time today between the current time (+ 5 mins) and 9 PM IST.
  */
-function getScheduledTimeInIST() {
+export function getScheduledTimeInIST() {
   const now = new Date();
   
   // IST offset is +5.5 hours (330 minutes)
@@ -90,4 +82,272 @@ function getScheduledTimeInIST() {
   // Convert the IST date back to UTC for saving in the database
   const targetUTC = new Date(targetDateIST.getTime() - istOffsetMs);
   return targetUTC;
+}
+
+const activeRuns = new Set();
+
+export async function runSchedulerJob(workflowId = null, options = {}) {
+  if (workflowId) {
+    if (activeRuns.has(workflowId)) {
+      console.log(`[Scheduler Cron] Workflow ${workflowId} is already running. Skipping concurrent run.`);
+      return;
+    }
+    activeRuns.add(workflowId);
+  }
+
+  console.log(`[Scheduler Cron] Starting check. targetWorkflowId=${workflowId ?? 'ALL'}`);
+  
+  const unipileDsn = process.env.UNIPILE_DSN ?? '';
+  const unipileApiKey = process.env.UNIPILE_API_KEY ?? '';
+  const geminiApiKey = process.env.GEMINI_API_KEY ?? '';
+
+  if (!unipileApiKey) {
+    console.error('[Scheduler Cron Error] UNIPILE_API_KEY is not configured.');
+    if (workflowId) activeRuns.delete(workflowId);
+    return;
+  }
+  if (!geminiApiKey) {
+    console.error('[Scheduler Cron Error] GEMINI_API_KEY is not configured.');
+    if (workflowId) activeRuns.delete(workflowId);
+    return;
+  }
+
+  const dsnBase = unipileDsn.startsWith('http') ? unipileDsn : `https://${unipileDsn}`;
+  const unipileBaseUrl = `${dsnBase}/api/v1`;
+
+  try {
+    // 1. Fetch workflows to process
+    let workflows = [];
+    if (workflowId) {
+      const wf = await prisma.workflow.findUnique({
+        where: { id: workflowId }
+      });
+      if (wf) workflows.push(wf);
+    } else {
+      workflows = await prisma.workflow.findMany();
+    }
+
+    if (workflows.length === 0) {
+      console.log('[Scheduler Cron] No workflows found to run.');
+      return;
+    }
+
+    console.log(`[Scheduler Cron] Processing ${workflows.length} workflow(s)...`);
+
+    for (const workflow of workflows) {
+      try {
+        console.log(`[Scheduler Cron] Running workflow "${workflow.name}" (${workflow.id})`);
+        
+        const accountId = workflow.userId; // userId stores the unipile account_id
+        const searchKeyword = workflow.type === 'creator' ? workflow.creatorName : workflow.keyword;
+
+        if (!searchKeyword?.trim()) {
+          console.log(`[Scheduler Cron] Workflow ${workflow.id} has no keyword or creator name. Skipping.`);
+          continue;
+        }
+
+        // 2. Search LinkedIn posts via Unipile
+        console.log(`[Scheduler Cron] Searching LinkedIn posts for "${searchKeyword}" using account ${accountId}...`);
+        const searchResponse = await fetch(`${unipileBaseUrl}/linkedin/search?account_id=${encodeURIComponent(accountId)}`, {
+          method: 'POST',
+          headers: {
+            'X-API-KEY': unipileApiKey,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({
+            api: 'classic',
+            category: 'posts',
+            keywords: searchKeyword.trim(),
+            date_posted: 'past_week'
+          })
+        });
+
+        if (!searchResponse.ok) {
+          const errorData = await searchResponse.text();
+          throw new Error(`Unipile search failed: ${errorData}`);
+        }
+
+        const searchResult = await searchResponse.json();
+        const rawPosts = searchResult.items ?? searchResult.data ?? searchResult.posts ?? [];
+        const posts = rawPosts
+          .map(normalizeSearchPost)
+          .sort((a, b) => {
+            const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+            const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+            return timeB - timeA;
+          });
+
+        console.log(`[Scheduler Cron] Found ${posts.length} raw search results (sorted newest first).`);
+
+        // 3. Filter posts based on existing comments & limits
+        const existingComments = await prisma.workflowComment.findMany({
+          where: { workflowId: workflow.id },
+          select: { postId: true }
+        });
+        const existingPostIds = new Set(existingComments.map(c => c.postId));
+
+        let filteredPosts = [];
+
+        if (workflow.type === 'creator') {
+          const slug = workflow.creatorIdentifier;
+          let matchedPosts = posts.filter(p =>
+            p.author?.profile_url?.toLowerCase().includes(slug.toLowerCase())
+          );
+
+          // Enforce 1 post per day limit for creator workflows
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+
+          const alreadyToday = await prisma.workflowComment.findFirst({
+            where: {
+              workflowId: workflow.id,
+              status: { in: ['posted', 'approved', 'scheduled', 'posting'] },
+              createdAt: { gte: today }
+            }
+          });
+
+          if (alreadyToday) {
+            console.log(`[Scheduler Cron] Workflow ${workflow.id} already has a comment scheduled or posted today. Skipping creator.`);
+            matchedPosts = [];
+          } else {
+            matchedPosts = matchedPosts.filter(p => !existingPostIds.has(p.id)).slice(0, 1);
+          }
+          filteredPosts = matchedPosts;
+        } else {
+          // Keyword workflows: count current active comments and limit by commentsPerDay
+          const activeCount = await prisma.workflowComment.count({
+            where: {
+              workflowId: workflow.id,
+              status: { in: ['pending', 'approved', 'scheduled', 'posting'] }
+            }
+          });
+          const remaining = Math.max(0, (workflow.commentsPerDay ?? 20) - activeCount);
+          filteredPosts = posts.filter(p => !existingPostIds.has(p.id)).slice(0, remaining);
+        }
+
+        if (filteredPosts.length === 0) {
+          console.log(`[Scheduler Cron] No new posts to comment on for workflow ${workflow.id}.`);
+          continue;
+        }
+
+        console.log(`[Scheduler Cron] Generating ${filteredPosts.length} comment(s) for workflow ${workflow.id}...`);
+
+        // 4. Generate comments in parallel
+        console.log(`[Scheduler Cron] Generating up to ${filteredPosts.length} comments in parallel for workflow ${workflow.id}...`);
+        
+        const generationPromises = filteredPosts.map(async (post) => {
+          try {
+            console.log(`[Scheduler Cron] Generating AI comment for post ${post.id} by ${post.author?.name}...`);
+            
+            const toneInstructions = {
+              friendly: 'Write in a warm, approachable, and conversational tone.',
+              professional: 'Write in a polished, professional, and brand-appropriate tone.',
+              casual: 'Write in a relaxed, informal, and relatable tone.',
+              witty: 'Write in a light-hearted tone with a touch of humour.',
+            };
+
+            const lengthInstructions = {
+              short: 'Write a very short, punchy comment (1 brief sentence or phrase, under 15 words).',
+              medium: 'Write a medium-sized comment (1-2 sentences).',
+              long: 'Write a detailed, insightful comment (3-4 sentences, adding value or asking a relevant question).',
+            };
+
+            const brandContext = options.brandContext ?? '';
+            const tone = options.tone ?? 'professional';
+            const avoid = options.avoid ?? '';
+
+            const parts = [];
+            if (brandContext.trim()) parts.push(`Brand / business context:\n${brandContext.trim()}`);
+            parts.push(`LinkedIn post by ${post.author?.name ?? 'someone'}:\n"${post.text.trim().slice(0, 600)}"`);
+            parts.push(toneInstructions[tone] ?? toneInstructions.professional);
+            if (avoid.trim()) parts.push(`Important — do NOT include: ${avoid.trim()}`);
+
+            const lenInstr = lengthInstructions[workflow.commentLength] ?? lengthInstructions.medium;
+            parts.push(`Write a thoughtful LinkedIn comment on this post. ${lenInstr} No hashtags. Return only the comment text, nothing else.`);
+
+            const promptText = parts.join('\n\n');
+
+            const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: promptText }] }]
+              })
+            });
+
+            if (!geminiRes.ok) {
+              const geminiErr = await geminiRes.text();
+              throw new Error(`Gemini API failed: ${geminiErr}`);
+            }
+
+            const geminiData = await geminiRes.json();
+            const commentText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+
+            if (!commentText) {
+              throw new Error('Gemini returned an empty comment suggestion.');
+            }
+
+            // Determine status and scheduled time
+            const status = workflow.autoPost ? 'scheduled' : 'pending';
+            const scheduledAt = workflow.autoPost ? getScheduledTimeInIST() : null;
+
+            // Double check if workflow still exists before creating comment
+            const wfExists = await prisma.workflow.findUnique({
+              where: { id: workflow.id },
+              select: { id: true }
+            });
+            if (!wfExists) {
+              console.log(`[Scheduler Cron] Workflow ${workflow.id} was deleted during generation. Skipping comment creation.`);
+              return false;
+            }
+
+            // Create comment in DB
+            await prisma.workflowComment.create({
+              data: {
+                workflowId: workflow.id,
+                postId: post.id,
+                postText: post.text?.slice(0, 220) ?? '',
+                postAuthor: post.author?.name ?? 'LinkedIn Member',
+                postAuthorHeadline: post.author?.headline ?? '',
+                postUrl: post.share_url ?? null,
+                commentText: commentText,
+                status: status,
+                scheduledAt: scheduledAt
+              }
+            });
+
+            console.log(`[Scheduler Cron] Created comment for post ${post.id}. Status=${status}, scheduledAt=${scheduledAt}`);
+            return true;
+          } catch (itemErr) {
+            console.error(`[Scheduler Cron] Failed for post ${post.id}:`, itemErr.message);
+            return false;
+          }
+        });
+
+        const results = await Promise.all(generationPromises);
+        const newCommentsCount = results.filter(Boolean).length;
+
+        // 5. Update workflow lastRunAt and count of generated comments
+        if (newCommentsCount > 0) {
+          await prisma.workflow.update({
+            where: { id: workflow.id },
+            data: {
+              lastRunAt: new Date(),
+              commentsGenerated: { increment: newCommentsCount }
+            }
+          });
+        }
+
+      } catch (wfErr) {
+        console.error(`[Scheduler Cron] Error processing workflow ${workflow.id}:`, wfErr);
+      }
+    }
+  } catch (err) {
+    console.error('[Scheduler Cron Error]', err);
+  } finally {
+    if (workflowId) {
+      activeRuns.delete(workflowId);
+    }
+  }
 }

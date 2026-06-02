@@ -30,6 +30,9 @@ export const workflowApi = {
   remove: (userId, id) =>
     apiFetch(`/workflows/${id}`, { method: 'DELETE', userId }),
 
+  run: (userId, id, payload) =>
+    apiFetch(`/workflows/${id}/run`, { method: 'POST', body: payload, userId }),
+
   // Comments
   listComments: (userId, workflowId) =>
     apiFetch(`/workflows/${workflowId}/comments`, { userId }),
