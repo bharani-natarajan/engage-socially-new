@@ -2,8 +2,10 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '@/lib/auth';
+import { useState, useRef, useEffect } from 'react';
 
-const links = [
+const baseLinks = [
   { href: '/', label: 'Dashboard' },
   { href: '/posts', label: 'Posts' },
   { href: '/create', label: 'Create Post' },
@@ -16,14 +18,37 @@ const links = [
 
 export default function TopNav() {
   const pathname = usePathname();
+  const { user, logout, isAdmin } = useAuth();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleOutsideClick(e) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
+
+  const links = baseLinks;
+
+  const initials = user
+    ? `${user.firstName?.[0] ?? ''}`.toUpperCase()
+    : 'U';
+
+  const PUBLIC_PATHS = ['/login', '/signup', '/forgot-password'];
+  if (PUBLIC_PATHS.includes(pathname)) return null;
 
   return (
-    <header className="h-[80px] bg-lord-card flex items-center justify-between px-8 shrink-0 z-20 shadow-[0_4px_24px_rgba(0,0,0,0.02)]">
+    <header className="h-[80px] bg-lord-card border-b border-lord-border/80 flex items-center justify-between px-8 shrink-0 z-20">
       {/* Left: Logo */}
       <div className="flex items-center gap-3">
         <Link
           href="/"
-          className="w-10 h-10 rounded-2xl bg-lord-green text-white flex-shrink-0 flex items-center justify-center font-bold"
+          className="w-10 h-10 rounded-2xl bg-lord-green text-lord-card flex-shrink-0 flex items-center justify-center font-bold"
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93V4.07C7.05 4.57 4 7.95 4 12s3.05 7.43 7 7.93zm2 0C16.95 19.43 20 16.05 20 12s-3.05-7.43-7-7.93v15.86z"/>
@@ -61,21 +86,21 @@ export default function TopNav() {
           <input
             type="text"
             placeholder="Search ..."
-            className="w-[200px] bg-lord-bg/60 border-none rounded-full py-2.5 pl-11 pr-4 text-[15px] focus:outline-none focus:ring-1 focus:ring-lord-border text-lord-text-main placeholder-gray-400 transition-all font-medium"
+            className="w-[200px] bg-[#f4f5f7] border-none rounded-full py-2.5 pl-11 pr-4 text-[15px] focus:outline-none focus:ring-1 focus:ring-lord-border text-lord-text-main placeholder-gray-400 transition-all font-medium"
           />
         </div>
 
         {/* Notifications / Messages */}
         <div className="flex items-center gap-2">
-          <button className="w-10 h-10 flex items-center justify-center text-lord-text-main hover:bg-lord-bg rounded-full transition-colors relative">
+          <button className="w-10 h-10 flex items-center justify-center text-lord-text-main hover:bg-[#f4f5f7] rounded-full transition-colors relative">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
               <polyline points="22,6 12,13 2,6" />
             </svg>
-            <span className="absolute top-2 right-2 w-2 h-2 bg-lord-red rounded-full border-2 border-white" />
+            <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white" />
           </button>
           
-          <button className="w-10 h-10 flex items-center justify-center text-lord-text-main hover:bg-lord-bg rounded-full transition-colors relative">
+          <button className="w-10 h-10 flex items-center justify-center text-lord-text-main hover:bg-[#f4f5f7] rounded-full transition-colors relative">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
@@ -83,10 +108,63 @@ export default function TopNav() {
           </button>
         </div>
 
-        {/* Profile */}
-        <div className="w-10 h-10 rounded-full bg-lord-teal overflow-hidden flex-shrink-0 cursor-pointer flex items-center justify-center text-white font-semibold">
-           {/* Fallback avatar */}
-           J
+        {/* Users button (only for admins) */}
+        {isAdmin && (
+          <Link
+            href="/admin"
+            className="px-5 py-2.5 rounded-full bg-lord-green text-lord-card text-[15px] font-semibold hover:opacity-90 transition-opacity"
+          >
+            Users
+          </Link>
+        )}
+
+        {/* Profile Avatar with Dropdown */}
+        <div className="relative" ref={dropdownRef}>
+          <button
+            onClick={() => setDropdownOpen(!dropdownOpen)}
+            className="w-10 h-10 rounded-full bg-[#2b7082] overflow-hidden flex-shrink-0 cursor-pointer flex items-center justify-center text-white font-bold text-[16px] focus:outline-none hover:opacity-95 transition-opacity"
+          >
+             {initials}
+          </button>
+
+          {dropdownOpen && (
+            <div className="absolute right-0 mt-2 w-56 bg-white border border-lord-border rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150 text-left">
+              <div className="px-4 py-2.5 border-b border-lord-border">
+                <p className="text-[14px] font-bold text-lord-text-main">{user ? `${user.firstName} ${user.lastName}` : 'Guest User'}</p>
+                <p className="text-[12px] text-lord-text-muted truncate mt-0.5">{user?.email ?? ''}</p>
+              </div>
+              
+              <Link
+                href="/settings"
+                onClick={() => setDropdownOpen(false)}
+                className="flex items-center gap-3 px-4 py-2.5 text-[14px] text-lord-text-main hover:bg-[#f4f5f7] transition-colors"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                Settings
+              </Link>
+              
+              {isAdmin && (
+                <Link
+                  href="/admin"
+                  onClick={() => setDropdownOpen(false)}
+                  className="flex items-center gap-3 px-4 py-2.5 text-[14px] text-lord-teal font-bold hover:bg-[#f4f5f7] transition-colors"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                  Users Panel
+                </Link>
+              )}
+
+              <div className="border-t border-lord-border my-1" />
+
+              <button
+                onClick={() => { setDropdownOpen(false); logout(); }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-[14px] text-red-600 hover:bg-red-50 transition-colors text-left font-semibold"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                Sign Out
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>

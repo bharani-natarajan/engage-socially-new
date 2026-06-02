@@ -44,7 +44,7 @@ export async function GET(request) {
       path: '/',
       maxAge: 365 * 24 * 60 * 60,
     };
-    store.set('unipile_account_id', accountId, base);
+    store.set('unipile_account_id', accountId, { ...base, httpOnly: false });
     store.set('unipile_name', name, { ...base, httpOnly: false });
 
     return NextResponse.redirect(`${APP_URL}/settings?li_connected=true`);
@@ -84,7 +84,7 @@ export async function POST(request) {
     };
 
     const store = await cookies();
-    store.set('unipile_account_id', accountId, base);
+    store.set('unipile_account_id', accountId, { ...base, httpOnly: false });
     store.set('unipile_name', name, { ...base, httpOnly: false });
 
     return NextResponse.json({ ok: true });

@@ -1,12 +1,16 @@
 import './globals.css';
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import TopNav from '@/components/TopNav';
+import { AuthProvider } from '@/lib/auth';
+import AuthGuard from '@/components/auth/AuthGuard';
+import ClientLayout from '@/components/layout/ClientLayout';
 
 export const metadata = {
   title: 'Engage Socially',
   description: 'Instagram social media management',
 };
+
+const PUBLIC_PATHS = ['/login', '/signup', '/forgot-password'];
 
 export default async function RootLayout({ children }) {
   const headersList = await headers();
@@ -19,21 +23,20 @@ export default async function RootLayout({ children }) {
 
   const hasError = search.includes('error=');
 
-  if (pathname !== '/settings' && (!isConnected || !hasFbToken) && manualToken && !hasError) {
+  const isPublicPath = PUBLIC_PATHS.includes(pathname);
+
+  if (!isPublicPath && pathname !== '/settings' && (!isConnected || !hasFbToken) && manualToken && !hasError) {
     redirect(`/api/auth/manual?token=${manualToken}`);
   }
 
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="bg-lord-bg font-sans antialiased text-lord-text-main" suppressHydrationWarning>
-        <div className="flex flex-col h-screen overflow-hidden">
-          <TopNav />
-          <main className="flex-1 overflow-y-auto overflow-x-hidden p-8">
-            <div className="max-w-[1400px] mx-auto w-full">
-              {children}
-            </div>
-          </main>
-        </div>
+      <body className="bg-lord-bg font-sans antialiased text-lord-text-main font-medium" suppressHydrationWarning>
+        <AuthProvider>
+          <AuthGuard>
+            <ClientLayout>{children}</ClientLayout>
+          </AuthGuard>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -34,7 +34,7 @@ export async function GET() {
       const isStopped = (account.status ?? '').toUpperCase() === 'STOPPED';
 
       if (provider === 'LINKEDIN') {
-        store.set('unipile_account_id', account.id, base);
+        store.set('unipile_account_id', account.id, { ...base, httpOnly: false });
         store.set('unipile_name', name, { ...base, httpOnly: false });
         if (isStopped) stopped.linkedin = { id: account.id, name };
         else connected.linkedin = name;

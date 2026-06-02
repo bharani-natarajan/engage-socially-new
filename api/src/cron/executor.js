@@ -16,7 +16,11 @@ export async function runExecutorJob() {
         }
       },
       include: {
-        workflow: true
+        workflow: {
+          include: {
+            user: true
+          }
+        }
       }
     });
 
@@ -47,7 +51,7 @@ export async function runExecutorJob() {
       }
 
       // 2. Perform the LinkedIn posting via Unipile
-      const accountId = comment.workflow.userId; // userId stores the unipile account_id
+      const accountId = comment.workflow.user?.unipileAccountId || comment.workflow.userId; // userId stores the unipile account_id
       const postId = comment.postId;
       const message = comment.commentText;
 

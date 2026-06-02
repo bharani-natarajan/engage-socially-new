@@ -1,9 +1,12 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import authRouter from './routes/auth.js';
+import adminRouter from './routes/admin.js';
 import workflowsRouter from './routes/workflows.js';
 import commentsRouter from './routes/comments.js';
 import analyticsRouter from './routes/analytics.js';
+import { requireAuth } from './middleware/auth.js';
 import { prisma } from './prisma.js';
 import { startCronJobs } from './cron/index.js';
 import { runSchedulerJob } from './cron/scheduler.js';
@@ -46,15 +49,14 @@ app.get('/cron/executor', async (req, res) => {
   }
 });
 
-// Auth middleware — require x-user-id on all /workflows, /comments and /analytics routes
-app.use(['/workflows', '/comments', '/analytics'], (req, res, next) => {
-  const userId = req.headers['x-user-id'];
-  if (!userId?.trim()) {
-    return res.status(401).json({ error: 'x-user-id header is required' });
-  }
-  req.userId = userId.trim();
-  next();
-});
+// Public auth routes (no auth required)
+app.use('/auth', authRouter);
+
+// Protected routes (JWT auth required)
+app.use('/admin', adminRouter);
+
+// Auth middleware — require valid JWT on all /workflows, /comments and /analytics routes
+app.use(['/workflows', '/comments', '/analytics'], requireAuth);
 
 app.use('/workflows', workflowsRouter);
 app.use('/comments', commentsRouter);

@@ -29,12 +29,28 @@ export default function SettingsPage() {
     setBrandContext(localStorage.getItem(SETTING_AI_CONTEXT) ?? '');
     setTone(localStorage.getItem(SETTING_AI_TONE) ?? 'friendly');
     setAvoid(localStorage.getItem(SETTING_AI_AVOID) ?? '');
-    const match = document.cookie.match(/(?:^|;\s*)unipile_name=([^;]*)/);
-    setLiName(match ? decodeURIComponent(match[1]) : null);
-    const igMatch = document.cookie.match(/(?:^|;\s*)ig_username=([^;]*)/);
-    setIgName(igMatch ? decodeURIComponent(igMatch[1]) : null);
-    const fbMatch = document.cookie.match(/(?:^|;\s*)fb_page_name=([^;]*)/);
-    setFbName(fbMatch ? decodeURIComponent(fbMatch[1]) : null);
+    
+    const getCookies = () => {
+      const match = document.cookie.match(/(?:^|;\s*)unipile_name=([^;]*)/);
+      setLiName(match ? decodeURIComponent(match[1]) : null);
+      const igMatch = document.cookie.match(/(?:^|;\s*)ig_username=([^;]*)/);
+      setIgName(igMatch ? decodeURIComponent(igMatch[1]) : null);
+      const fbMatch = document.cookie.match(/(?:^|;\s*)fb_page_name=([^;]*)/);
+      setFbName(fbMatch ? decodeURIComponent(fbMatch[1]) : null);
+    };
+    
+    getCookies();
+
+    // Call unipile sync endpoint to sync connected accounts and set cookies
+    fetch('/api/auth/unipile/sync')
+      .then(res => res.json())
+      .then(data => {
+        if (data.ok) {
+          getCookies();
+        }
+      })
+      .catch(console.error);
+
     // Sync li_org_id from localStorage to cookie so server components can read it
     const orgId = localStorage.getItem('li_org_id') ?? '';
     document.cookie = `li_org_id=${encodeURIComponent(orgId)};path=/;max-age=${365*24*60*60};samesite=lax`;

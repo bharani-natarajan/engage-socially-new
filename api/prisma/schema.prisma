@@ -8,9 +8,39 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+model User {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  firstName        String   @map("first_name")
+  lastName         String   @map("last_name")
+  email            String   @unique
+  phone            String   @default("")
+  role             String   @default("user")
+  verified         Boolean  @default(false)
+  unipileAccountId String?  @map("unipile_account_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  workflows Workflow[]
+
+  @@map("users")
+}
+
+model Otp {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email     String
+  code      String
+  type      String
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([email, type])
+  @@map("otps")
+}
+
 model Workflow {
   id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId            String            @map("user_id")
+  userId            String            @map("user_id") @db.Uuid
   name              String
   type              String
   keyword           String            @default("")
@@ -24,6 +54,8 @@ model Workflow {
   lastRunAt         DateTime?         @map("last_run_at")
   commentsGenerated Int               @default(0) @map("comments_generated")
   comments          WorkflowComment[]
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("workflows")

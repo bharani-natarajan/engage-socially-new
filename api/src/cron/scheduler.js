@@ -84,6 +84,35 @@ export function getScheduledTimeInIST() {
   return targetUTC;
 }
 
+async function autoResolveUnipileAccount(userId, unipileBaseUrl, unipileApiKey) {
+  try {
+    const url = `${unipileBaseUrl}/accounts`;
+    const response = await fetch(url, {
+      headers: {
+        'X-API-KEY': unipileApiKey,
+        'Accept': 'application/json'
+      }
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    const accounts = data.items ?? data.data ?? data;
+    if (Array.isArray(accounts) && accounts.length > 0) {
+      const activeAcc = accounts.find(a => a.sources?.some(s => s.status === 'OK')) || accounts[0];
+      if (activeAcc && userId) {
+        await prisma.user.update({
+          where: { id: userId },
+          data: { unipileAccountId: activeAcc.id }
+        });
+        console.log(`[Auto-Resolve] Saved Unipile account ID ${activeAcc.id} to user ID ${userId}`);
+      }
+      return activeAcc?.id || null;
+    }
+  } catch (err) {
+    console.error('[Auto-Resolve] Failed to auto-resolve Unipile account:', err.message);
+  }
+  return null;
+}
+
 const activeRuns = new Set();
 
 export async function runSchedulerJob(workflowId = null, options = {}) {
@@ -120,11 +149,14 @@ export async function runSchedulerJob(workflowId = null, options = {}) {
     let workflows = [];
     if (workflowId) {
       const wf = await prisma.workflow.findUnique({
-        where: { id: workflowId }
+        where: { id: workflowId },
+        include: { user: true }
       });
       if (wf) workflows.push(wf);
     } else {
-      workflows = await prisma.workflow.findMany();
+      workflows = await prisma.workflow.findMany({
+        include: { user: true }
+      });
     }
 
     if (workflows.length === 0) {
@@ -138,7 +170,18 @@ export async function runSchedulerJob(workflowId = null, options = {}) {
       try {
         console.log(`[Scheduler Cron] Running workflow "${workflow.name}" (${workflow.id})`);
         
-        const accountId = workflow.userId; // userId stores the unipile account_id
+        let accountId = workflow.user?.unipileAccountId || workflow.userId; // userId stores the unipile account_id
+
+        // Self-heal: If account ID looks like a database user UUID (e.g. 36 chars with hyphens), auto-resolve it
+        const isDbUuid = accountId && accountId.includes('-') && accountId.length === 36;
+        if (!accountId || isDbUuid) {
+          console.log(`[Scheduler Cron] Account ID "${accountId}" is invalid or a database UUID. Attempting to resolve a valid Unipile account ID...`);
+          const resolvedId = await autoResolveUnipileAccount(workflow.user?.id, unipileBaseUrl, unipileApiKey);
+          if (resolvedId) {
+            accountId = resolvedId;
+          }
+        }
+
         const searchKeyword = workflow.type === 'creator' ? workflow.creatorName : workflow.keyword;
 
         if (!searchKeyword?.trim()) {
@@ -148,7 +191,7 @@ export async function runSchedulerJob(workflowId = null, options = {}) {
 
         // 2. Search LinkedIn posts via Unipile
         console.log(`[Scheduler Cron] Searching LinkedIn posts for "${searchKeyword}" using account ${accountId}...`);
-        const searchResponse = await fetch(`${unipileBaseUrl}/linkedin/search?account_id=${encodeURIComponent(accountId)}`, {
+        let searchResponse = await fetch(`${unipileBaseUrl}/linkedin/search?account_id=${encodeURIComponent(accountId)}`, {
           method: 'POST',
           headers: {
             'X-API-KEY': unipileApiKey,
@@ -163,9 +206,39 @@ export async function runSchedulerJob(workflowId = null, options = {}) {
           })
         });
 
-        if (!searchResponse.ok) {
+        // Self-heal: If Unipile says account not found (404), retry auto-resolving and search again
+        if (searchResponse.status === 404 || !searchResponse.ok) {
           const errorData = await searchResponse.text();
-          throw new Error(`Unipile search failed: ${errorData}`);
+          if (errorData.includes('Account not found') || searchResponse.status === 404) {
+            console.log(`[Scheduler Cron] Unipile search failed with 404 / Account not found. Retrying auto-resolve...`);
+            const resolvedId = await autoResolveUnipileAccount(workflow.user?.id, unipileBaseUrl, unipileApiKey);
+            if (resolvedId && resolvedId !== accountId) {
+              accountId = resolvedId;
+              console.log(`[Scheduler Cron] Retrying Unipile search using resolved account ${accountId}...`);
+              searchResponse = await fetch(`${unipileBaseUrl}/linkedin/search?account_id=${encodeURIComponent(accountId)}`, {
+                method: 'POST',
+                headers: {
+                  'X-API-KEY': unipileApiKey,
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                  api: 'classic',
+                  category: 'posts',
+                  keywords: searchKeyword.trim(),
+                  date_posted: 'past_week'
+                })
+              });
+              if (!searchResponse.ok) {
+                const retryErrorData = await searchResponse.text();
+                throw new Error(`Unipile search failed on retry: ${retryErrorData}`);
+              }
+            } else {
+              throw new Error(`Unipile search failed: ${errorData}`);
+            }
+          } else {
+            throw new Error(`Unipile search failed: ${errorData}`);
+          }
         }
 
         const searchResult = await searchResponse.json();
