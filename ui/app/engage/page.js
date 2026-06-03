@@ -470,9 +470,23 @@ function WorkflowForm({ workflow, onCancel, onSave }) {
   function handleSave() {
     if (!name.trim()) { setError('Workflow name is required'); return; }
     if (type === 'keyword' && !keyword.trim()) { setError('Keyword is required'); return; }
+    
+    let creatorIdentifier = '';
     if (type === 'creator') {
       if (!creatorName.trim()) { setError('Creator name is required'); return; }
       if (!creatorUrl.trim()) { setError('Creator LinkedIn URL is required'); return; }
+      
+      const personalMatch = creatorUrl.match(/linkedin\.com\/in\/([^/?#]+)/i);
+      const companyMatch = creatorUrl.match(/linkedin\.com\/company\/([^/?#]+)/i);
+      
+      if (personalMatch) {
+        creatorIdentifier = personalMatch[1];
+      } else if (companyMatch) {
+        creatorIdentifier = companyMatch[1];
+      } else {
+        setError('Please enter a valid LinkedIn Profile URL (containing "/in/username") or Company URL (containing "/company/name").');
+        return;
+      }
     }
 
     const parsedLimit = parseInt(commentsPerDay, 10);
@@ -493,9 +507,6 @@ function WorkflowForm({ workflow, onCancel, onSave }) {
       setError(`Comments per day count must be at least ${workflow.commentCount} since that many posts have already been processed.`);
       return;
     }
-
-    const urlMatch = creatorUrl.match(/linkedin\.com\/in\/([^/?#]+)/i);
-    const creatorIdentifier = urlMatch ? urlMatch[1] : creatorName.trim().toLowerCase().replace(/\s+/g, '-');
 
     const payload = {
       name: name.trim(),
@@ -1183,6 +1194,15 @@ function WorkflowsView({ userId, showActionLoader, hideActionLoader }) {
         const res = await workflowApi.update(userId, modalWorkflow.id, { ...payload, brandContext, tone, avoid });
 
         setWorkflows(prev => prev.map(w => w.id === modalWorkflow.id ? res.data : w));
+
+        if (!res.data.comments || res.data.comments.length === 0) {
+          setError(payload.type === 'keyword'
+            ? 'Workflow updated successfully, but no LinkedIn posts were found for this keyword in the past week.'
+            : 'Workflow updated successfully, but no active posts were found for this creator URL in the past week.'
+          );
+        } else {
+          setError('');
+        }
       } else {
         showActionLoader('Creating Workflow & Generating Comments...');
         const brandContext = localStorage.getItem('setting_ai_context') ?? '';
@@ -1190,6 +1210,15 @@ function WorkflowsView({ userId, showActionLoader, hideActionLoader }) {
         const avoid = localStorage.getItem('setting_ai_avoid') ?? '';
         const res = await workflowApi.create(userId, { ...payload, brandContext, tone, avoid });
         setWorkflows(prev => [res.data, ...prev]);
+
+        if (!res.data.comments || res.data.comments.length === 0) {
+          setError(payload.type === 'keyword'
+            ? 'Workflow created successfully, but no LinkedIn posts were found for this keyword in the past week. You may need to wait for new posts or try a broader keyword.'
+            : 'Workflow created successfully, but no active posts were found for this creator URL in the past week. Make sure the creator has published content recently.'
+          );
+        } else {
+          setError('');
+        }
       }
       setViewState('list');
       setModalWorkflow(null);
