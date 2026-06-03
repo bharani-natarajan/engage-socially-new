@@ -41,8 +41,14 @@ export default function SettingsPage() {
     
     getCookies();
 
+    const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+    const headers = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     // Call unipile sync endpoint to sync connected accounts and set cookies
-    fetch('/api/auth/unipile/sync')
+    fetch('/api/auth/unipile/sync', { headers })
       .then(res => res.json())
       .then(data => {
         if (data.ok) {

@@ -5,9 +5,29 @@ import { getAccounts } from '@/lib/unipile';
 export const dynamic = 'force-dynamic';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
-export async function GET() {
+export async function GET(request) {
   try {
+    const authHeader = request.headers.get('authorization');
+    let userUnipileAccountId = null;
+
+    if (authHeader) {
+      try {
+        const meRes = await fetch(`${API_URL}/auth/me`, {
+          headers: {
+            'Authorization': authHeader
+          }
+        });
+        if (meRes.ok) {
+          const meData = await meRes.json();
+          userUnipileAccountId = meData.user?.unipileAccountId;
+        }
+      } catch (err) {
+        console.error('[Unipile sync auth error]', err.message);
+      }
+    }
+
     const result = await getAccounts();
     const accounts = result.items ?? result.data ?? result.accounts ?? [];
 
@@ -24,21 +44,57 @@ export async function GET() {
     const connected = {};
     const stopped = {};
 
-    for (const account of accounts) {
-      const provider = (account.provider ?? account.type ?? '').toUpperCase();
-      const name =
-        account.name ??
-        account.username ??
-        account.connection_params?.username ??
-        provider;
-      const isStopped = (account.status ?? '').toUpperCase() === 'STOPPED';
-
-      if (provider === 'LINKEDIN') {
-        store.set('unipile_account_id', account.id, { ...base, httpOnly: false });
-        store.set('unipile_name', name, { ...base, httpOnly: false });
-        if (isStopped) stopped.linkedin = { id: account.id, name };
-        else connected.linkedin = name;
+    // If database has no account ID but we have a unipile_account_id cookie,
+    // update the database to link it to the current logged-in user.
+    const cookieAccountId = store.get('unipile_account_id')?.value;
+    if (authHeader && !userUnipileAccountId && cookieAccountId) {
+      try {
+        const updateRes = await fetch(`${API_URL}/auth/unipile-account`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': authHeader
+          },
+          body: JSON.stringify({ unipileAccountId: cookieAccountId })
+        });
+        if (updateRes.ok) {
+          userUnipileAccountId = cookieAccountId;
+        }
+      } catch (err) {
+        console.error('[Unipile sync db update error]', err.message);
       }
+    }
+
+    // Find the account matching the logged-in user's unipileAccountId
+    let targetAccount = null;
+    if (userUnipileAccountId) {
+      targetAccount = accounts.find(account => 
+        account.id === userUnipileAccountId && 
+        (account.provider ?? account.type ?? '').toUpperCase() === 'LINKEDIN'
+      );
+    }
+
+    if (targetAccount) {
+      const name =
+        targetAccount.name ??
+        targetAccount.username ??
+        targetAccount.connection_params?.username ??
+        'LINKEDIN';
+      const isStopped = (targetAccount.status ?? '').toUpperCase() === 'STOPPED';
+
+      store.set('unipile_account_id', targetAccount.id, { ...base, httpOnly: false });
+      store.set('unipile_name', name, { ...base, httpOnly: false });
+      
+      if (isStopped) {
+        stopped.linkedin = { id: targetAccount.id, name };
+      } else {
+        connected.linkedin = name;
+      }
+    } else {
+      // If the user does not have a linked account, or it wasn't found in Unipile,
+      // clear the cookies so we don't display another user's LinkedIn details.
+      store.delete('unipile_account_id');
+      store.delete('unipile_name');
     }
 
     return NextResponse.json({ ok: true, connected, stopped });

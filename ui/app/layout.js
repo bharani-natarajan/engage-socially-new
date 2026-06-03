@@ -26,7 +26,7 @@ export default async function RootLayout({ children }) {
   const isPublicPath = PUBLIC_PATHS.includes(pathname);
 
   if (!isPublicPath && pathname !== '/settings' && (!isConnected || !hasFbToken) && manualToken && !hasError) {
-    redirect(`/api/auth/manual?token=${manualToken}`);
+    redirect(`/api/auth/manual?token=${manualToken}&redirect=${encodeURIComponent(pathname + search)}`);
   }
 
   return (

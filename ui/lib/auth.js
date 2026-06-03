@@ -36,6 +36,22 @@ export function AuthProvider({ children }) {
     setUser(null);
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_user');
+    
+    // Clear session cookies to prevent cross-user contamination
+    const cookiesToClear = [
+      'unipile_account_id',
+      'unipile_name',
+      'ig_access_token',
+      'ig_user_id',
+      'ig_username',
+      'fb_page_token',
+      'fb_page_id',
+      'fb_page_name'
+    ];
+    cookiesToClear.forEach(c => {
+      document.cookie = `${c}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+    });
+
     window.location.href = '/login';
   }, []);
 

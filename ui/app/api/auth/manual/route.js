@@ -74,9 +74,18 @@ export async function GET(request) {
     store.set('fb_page_id', page.id, base);
     store.set('fb_page_name', page.name ?? '', { ...base, httpOnly: false });
 
-    return NextResponse.redirect(`${APP_URL}/?connected=true`);
+    const redirectTo = searchParams.get('redirect') || '/';
+    const safeRedirect = redirectTo.startsWith('/') ? redirectTo : '/';
+    const redirectUrl = new URL(safeRedirect, APP_URL);
+    redirectUrl.searchParams.set('connected', 'true');
+
+    return NextResponse.redirect(redirectUrl.toString());
   } catch (err) {
     console.error('[Manual Auth Error]', err.message);
-    return NextResponse.redirect(`${APP_URL}/?error=${encodeURIComponent(err.message)}`);
+    const redirectTo = searchParams.get('redirect') || '/';
+    const safeRedirect = redirectTo.startsWith('/') ? redirectTo : '/';
+    const redirectUrl = new URL(safeRedirect, APP_URL);
+    redirectUrl.searchParams.set('error', err.message);
+    return NextResponse.redirect(redirectUrl.toString());
   }
 }
