@@ -87,7 +87,7 @@ export default function LoginPage() {
 
   return (
     <AuthLayout
-      title="Welcome Back"
+      title={step === 'credentials' ? '' : 'Verify Email'}
       subtitle={step === 'credentials' ? 'Sign in to your account' : 'Enter the verification code sent to your email'}
     >
       {error && (

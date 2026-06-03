@@ -23,6 +23,11 @@ export default function SettingsPage() {
   const [liName, setLiName] = useState(null);
   const [igName, setIgName] = useState(null);
   const [fbName, setFbName] = useState(null);
+  const [liPostTarget, setLiPostTarget] = useState('personal');
+  const [liPages, setLiPages] = useState([]);
+  const [personalName, setPersonalName] = useState('');
+  const [loadingPages, setLoadingPages] = useState(false);
+  const [selectedPageId, setSelectedPageId] = useState(null);
 
   useEffect(() => {
     setAutoReply(localStorage.getItem(SETTING_AI_AUTO_REPLY) === 'true');
@@ -53,15 +58,91 @@ export default function SettingsPage() {
       .then(data => {
         if (data.ok) {
           getCookies();
+          // After sync, fetch pages if connected
+          fetchLinkedInPages();
         }
       })
       .catch(console.error);
 
-    // Sync li_org_id from localStorage to cookie so server components can read it
+    // Sync li_org_id and li_post_target from localStorage to cookie
     const orgId = localStorage.getItem('li_org_id') ?? '';
+    setSelectedPageId(orgId || null);
     document.cookie = `li_org_id=${encodeURIComponent(orgId)};path=/;max-age=${365*24*60*60};samesite=lax`;
+    const target = localStorage.getItem('li_post_target') ?? 'personal';
+    setLiPostTarget(target);
+    document.cookie = `li_post_target=${encodeURIComponent(target)};path=/;max-age=${365*24*60*60};samesite=lax`;
+    
+    const fetchLinkedInPages = () => {
+      const match = document.cookie.match(/(?:^|;\s*)unipile_account_id=([^;]*)/);
+      if (match) {
+        setLoadingPages(true);
+        fetch('/api/auth/unipile/pages')
+          .then(res => res.json())
+          .then(data => {
+            if (!data.error) {
+              setLiPages(data.pages ?? []);
+              setPersonalName(data.personalName ?? '');
+            }
+          })
+          .catch(console.error)
+          .finally(() => setLoadingPages(false));
+      }
+    };
+
+    fetchLinkedInPages();
     setMounted(true);
   }, []);
+
+  const handlePostTargetChange = (target, orgId = null) => {
+    setLiPostTarget(target);
+    localStorage.setItem('li_post_target', target);
+    document.cookie = `li_post_target=${encodeURIComponent(target)};path=/;max-age=${365*24*60*60};samesite=lax`;
+    
+    if (orgId) {
+      setSelectedPageId(orgId);
+      localStorage.setItem('li_org_id', orgId);
+      document.cookie = `li_org_id=${encodeURIComponent(orgId)};path=/;max-age=${365*24*60*60};samesite=lax`;
+    } else {
+      setSelectedPageId(null);
+      localStorage.removeItem('li_org_id');
+      document.cookie = `li_org_id=;path=/;max-age=0;samesite=lax`;
+    }
+
+    // Sync target choice to database
+    const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+    if (token) {
+      fetch('/api/auth/unipile/settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          linkedinPostTarget: target,
+          linkedinOrgId: orgId
+        })
+      }).catch(console.error);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    if (!confirm('Are you sure you want to disconnect your LinkedIn account? This will clear all connection settings.')) return;
+    try {
+      const res = await fetch('/api/auth/unipile/disconnect', { method: 'POST' });
+      if (res.ok) {
+        setLiName(null);
+        setLiPages([]);
+        setPersonalName('');
+        setLiPostTarget('personal');
+        setSelectedPageId(null);
+      } else {
+        alert('Failed to disconnect');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error disconnecting: ' + err.message);
+    }
+  };
 
   function toggleAutoReply() {
     const next = !autoReply;
@@ -88,87 +169,164 @@ export default function SettingsPage() {
           <h3 className="text-sm font-bold text-lord-text-main">Connected Accounts</h3>
           <p className="text-xs text-lord-text-muted mt-0.5">Manage your social platform connections</p>
         </div>
-        <div className="p-6">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-[#0A66C2] flex items-center justify-center flex-shrink-0">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
-                  <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
-                </svg>
+        <div className="p-6 divide-y divide-lord-border/50 space-y-6">
+          {/* LinkedIn Row */}
+          <div className="pb-6">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-[#0A66C2] flex items-center justify-center flex-shrink-0">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                    <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-lord-text-main">LinkedIn</p>
+                  <p className="text-xs text-lord-text-muted">
+                    {liName ? `Connected as ${liName}` : 'Account not connected'}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-semibold text-lord-text-main">LinkedIn</p>
-                <p className="text-xs text-lord-text-muted">
-                  {liName ? `Connected as ${liName}` : 'Not connected'}
-                </p>
-              </div>
+              {liName ? (
+                <button
+                  onClick={handleDisconnect}
+                  className="px-4 py-2 rounded-full text-[12px] font-bold transition-colors bg-red-50 text-red-600 hover:bg-red-100"
+                >
+                  Disconnect
+                </button>
+              ) : (
+                <a
+                  href="/api/auth/unipile"
+                  className="px-4 py-2 rounded-full text-[12px] font-bold transition-colors bg-[#0A66C2] text-white hover:bg-[#004182]"
+                >
+                  Connect
+                </a>
+              )}
             </div>
-            <a
-              href="/api/auth/unipile"
-              className={`px-4 py-2 rounded-full text-[12px] font-bold transition-colors ${
-                liName ? 'bg-gray-100 text-gray-500 hover:bg-gray-200' : 'bg-[#0A66C2] text-white hover:bg-[#004182]'
-              }`}
-            >
-              {liName ? 'Reconnect' : 'Connect'}
-            </a>
+            {liName && (
+              <div className="mt-4 pl-12 space-y-3">
+                <p className="text-xs font-bold text-lord-text-main">
+                  Select active posting destination:
+                </p>
+                
+                {loadingPages ? (
+                  <div className="flex items-center gap-2 text-xs text-lord-text-muted">
+                    <svg className="animate-spin h-4 w-4 text-lord-green" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Loading pages...
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-w-md">
+                    {/* Personal Profile Row */}
+                    <label className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all select-none ${
+                      liPostTarget === 'personal'
+                        ? 'border-lord-green bg-lord-green/5 ring-1 ring-lord-green'
+                        : 'border-lord-border hover:border-gray-300 bg-white'
+                    }`}>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="radio"
+                          name="li_post_destination"
+                          checked={liPostTarget === 'personal'}
+                          onChange={() => handlePostTargetChange('personal')}
+                          className="w-4 h-4 text-lord-green focus:ring-lord-green border-lord-border"
+                        />
+                        <div>
+                          <p className="text-[13px] font-semibold text-lord-text-main">
+                            {personalName || liName || 'Personal Profile'}
+                          </p>
+                          <p className="text-[11px] text-lord-text-muted">Personal Profile</p>
+                        </div>
+                      </div>
+                    </label>
+
+                    {/* Business Pages Rows */}
+                    {liPages.map((page) => (
+                      <label key={page.id} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all select-none ${
+                        liPostTarget === 'business' && selectedPageId === page.id
+                          ? 'border-lord-green bg-lord-green/5 ring-1 ring-lord-green'
+                          : 'border-lord-border hover:border-gray-300 bg-white'
+                      }`}>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="radio"
+                            name="li_post_destination"
+                            checked={liPostTarget === 'business' && selectedPageId === page.id}
+                            onChange={() => handlePostTargetChange('business', page.id)}
+                            className="w-4 h-4 text-lord-green focus:ring-lord-green border-lord-border"
+                          />
+                          <div>
+                            <p className="text-[13px] font-semibold text-lord-text-main">{page.name}</p>
+                            <p className="text-[11px] text-lord-text-muted">Company Page (ID: {page.id})</p>
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-          <div className="mt-4 space-y-1">
-            <label className="block text-xs font-semibold text-lord-text-main">
-              Company Page ID <span className="font-normal text-lord-text-muted">(optional — posts to your company page instead of personal profile)</span>
-            </label>
-            <input
-              type="text"
-              defaultValue={typeof window !== 'undefined' ? (localStorage.getItem('li_org_id') ?? '') : ''}
-              onChange={(e) => {
-                const v = e.target.value.trim();
-                localStorage.setItem('li_org_id', v);
-                document.cookie = `li_org_id=${encodeURIComponent(v)};path=/;max-age=${365*24*60*60};samesite=lax`;
-              }}
-              placeholder="e.g. 12345678"
-              className="w-full rounded-xl border border-lord-border bg-white px-4 py-2 text-[13px] text-lord-text-main placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-lord-green/40"
-            />
-            <p className="text-[11px] text-lord-text-muted">
-              Find it in your LinkedIn Company Page URL: linkedin.com/company/<span className="font-medium">12345678</span>/admin
-            </p>
+
+          {/* Instagram Row */}
+          <div className="py-6">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{background: 'radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%)'}}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-lord-text-main">Instagram</p>
+                  <p className="text-xs text-lord-text-muted">
+                    {igName ? `Connected as @${igName}` : 'Account not connected'}
+                  </p>
+                </div>
+              </div>
+              <a
+                href="/api/auth/instagram"
+                className={`px-4 py-2 rounded-full text-[12px] font-bold transition-colors ${
+                  igName ? 'bg-gray-100 text-gray-500 hover:bg-gray-200' : 'bg-pink-500 text-white hover:bg-pink-600'
+                }`}
+              >
+                {igName ? 'Reconnect' : 'Connect'}
+              </a>
+            </div>
           </div>
-          <p className="text-[11px] text-lord-text-muted mt-3">
-            Powered by Unipile — no LinkedIn app approval required.
-          </p>
+
+          {/* Facebook Row */}
+          <div className="pt-6">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-[#1877F2] flex items-center justify-center flex-shrink-0">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-lord-text-main">Facebook</p>
+                  <p className="text-xs text-lord-text-muted">
+                    {fbName ? `Connected as ${fbName}` : 'Account not connected'}
+                  </p>
+                </div>
+              </div>
+              <a
+                href="/api/auth/instagram"
+                className={`px-4 py-2 rounded-full text-[12px] font-bold transition-colors ${
+                  fbName ? 'bg-gray-100 text-gray-500 hover:bg-gray-200' : 'bg-[#1877F2] text-white hover:bg-[#1150a2]'
+                }`}
+              >
+                {fbName ? 'Reconnect' : 'Connect'}
+              </a>
+            </div>
+          </div>
         </div>
 
-        {/* Instagram */}
-        <div className="px-6 pb-5 border-t border-lord-border pt-5">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{background: 'radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%)'}}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
-                  <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-lord-text-main">Instagram</p>
-                <p className="text-xs text-lord-text-muted">
-                  {igName ? `Connected as @${igName}` : 'Not connected'}
-                </p>
-              </div>
-            </div>
-            <a
-              href="/api/auth/instagram"
-              className={`px-4 py-2 rounded-full text-[12px] font-bold transition-colors ${
-                igName ? 'bg-gray-100 text-gray-500 hover:bg-gray-200' : 'bg-pink-500 text-white hover:bg-pink-600'
-              }`}
-            >
-              {igName ? 'Reconnect' : 'Connect'}
-            </a>
-          </div>
-          {igName && fbName && (
-            <p className="text-[11px] text-lord-text-muted mt-3">
-              Facebook Page: <span className="font-medium text-lord-text-main">{fbName}</span>
-            </p>
-          )}
-          <p className="text-[11px] text-lord-text-muted mt-1">
-            Connects both Instagram and Facebook in one step.
-          </p>
+        <div className="px-6 py-4 bg-lord-bg/30 border-t border-lord-border/50 text-[11px] text-lord-text-muted flex flex-col gap-1">
+          {/* <p>• LinkedIn connection powered by Unipile — no developer app approval required.</p> */}
+          <p>• Connecting Instagram also connects Facebook automatically in one single step.</p>
         </div>
       </div>
 

@@ -12,25 +12,6 @@ export async function GET(request) {
     const authHeader = request.headers.get('authorization');
     let userUnipileAccountId = null;
 
-    if (authHeader) {
-      try {
-        const meRes = await fetch(`${API_URL}/auth/me`, {
-          headers: {
-            'Authorization': authHeader
-          }
-        });
-        if (meRes.ok) {
-          const meData = await meRes.json();
-          userUnipileAccountId = meData.user?.unipileAccountId;
-        }
-      } catch (err) {
-        console.error('[Unipile sync auth error]', err.message);
-      }
-    }
-
-    const result = await getAccounts();
-    const accounts = result.items ?? result.data ?? result.accounts ?? [];
-
     const isHttps = APP_URL?.startsWith('https');
     const base = {
       httpOnly: true,
@@ -41,13 +22,39 @@ export async function GET(request) {
     };
 
     const store = await cookies();
+
+    if (authHeader) {
+      try {
+        const meRes = await fetch(`${API_URL}/auth/me`, {
+          headers: {
+            'Authorization': authHeader
+          }
+        });
+        if (meRes.ok) {
+          const meData = await meRes.json();
+          userUnipileAccountId = meData.user?.unipileAccountId;
+
+          // Sync database target settings to cookies
+          const dbTarget = meData.user?.linkedinPostTarget || 'personal';
+          const dbOrgId = meData.user?.linkedinOrgId || '';
+          store.set('li_post_target', dbTarget, { ...base, httpOnly: false });
+          store.set('li_org_id', dbOrgId, { ...base, httpOnly: false });
+        }
+      } catch (err) {
+        console.error('[Unipile sync auth error]', err.message);
+      }
+    }
+
+    const result = await getAccounts();
+    const accounts = result.items ?? result.data ?? result.accounts ?? [];
+
     const connected = {};
     const stopped = {};
 
-    // If database has no account ID but we have a unipile_account_id cookie,
-    // update the database to link it to the current logged-in user.
+    // If the database has a different account ID (or none) than our cookie,
+    // update the database to link the new account to the current logged-in user.
     const cookieAccountId = store.get('unipile_account_id')?.value;
-    if (authHeader && !userUnipileAccountId && cookieAccountId) {
+    if (authHeader && cookieAccountId && cookieAccountId !== userUnipileAccountId) {
       try {
         const updateRes = await fetch(`${API_URL}/auth/unipile-account`, {
           method: 'POST',

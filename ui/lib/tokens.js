@@ -15,7 +15,7 @@ export async function requireAuth() {
   if (!tokens.accessToken || !tokens.userId) {
     return {
       tokens: null,
-      error: NextResponse.json({ error: 'Not authenticated' }, { status: 401 }),
+      error: NextResponse.json({ error: 'Instagram not connected. Please connect your Instagram account in Settings.' }, { status: 401 }),
     };
   }
   return { tokens, error: null };

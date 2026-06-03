@@ -283,7 +283,7 @@ router.get('/me', requireAuth, async (req, res, next) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.userId },
-      select: { id: true, firstName: true, lastName: true, email: true, phone: true, role: true, verified: true, unipileAccountId: true, createdAt: true },
+      select: { id: true, firstName: true, lastName: true, email: true, phone: true, role: true, verified: true, unipileAccountId: true, linkedinPostTarget: true, linkedinOrgId: true, createdAt: true },
     });
     if (!user) return res.status(404).json({ error: 'User not found' });
     res.json({ user });
@@ -302,6 +302,24 @@ router.post('/unipile-account', requireAuth, async (req, res, next) => {
       select: { id: true, firstName: true, lastName: true, email: true, role: true, unipileAccountId: true }
     });
     res.json({ message: 'Unipile account ID updated successfully', user });
+  } catch (err) { next(err); }
+});
+
+/* ------------------------------------------------------------------ */
+/*  POST /auth/unipile-settings — Update LinkedIn posting target settings */
+/* ------------------------------------------------------------------ */
+router.post('/unipile-settings', requireAuth, async (req, res, next) => {
+  try {
+    const { linkedinPostTarget, linkedinOrgId } = req.body;
+    const user = await prisma.user.update({
+      where: { id: req.userId },
+      data: {
+        linkedinPostTarget: linkedinPostTarget || 'personal',
+        linkedinOrgId: linkedinOrgId || null
+      },
+      select: { id: true, linkedinPostTarget: true, linkedinOrgId: true }
+    });
+    res.json({ message: 'Settings updated successfully', user });
   } catch (err) { next(err); }
 });
 

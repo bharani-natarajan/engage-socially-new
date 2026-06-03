@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { requireUnipileAuth } from '@/lib/tokens';
 import { getPostComments, normalizeComment, replyToComment } from '@/lib/unipile';
 
@@ -38,7 +39,11 @@ export async function POST(request) {
   }
 
   try {
-    const result = await replyToComment(postId, commentId ?? null, message, tokens.accountId);
+    const store = await cookies();
+    const postTarget = store.get('li_post_target')?.value || 'personal';
+    const orgId = postTarget === 'business' ? (store.get('li_org_id')?.value || null) : null;
+
+    const result = await replyToComment(postId, commentId ?? null, message, tokens.accountId, orgId);
     return NextResponse.json({ id: result.id ?? null });
   } catch (err) {
     console.error('[LinkedIn reply error]', err.message);

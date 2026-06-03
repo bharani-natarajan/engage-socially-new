@@ -344,7 +344,8 @@ export default function CreatePostPage() {
 
       if (platform === 'linkedin') {
         setStatusMsg('Publishing to LinkedIn…');
-        const orgId = localStorage.getItem('li_org_id') || null;
+        const postTarget = localStorage.getItem('li_post_target') || 'personal';
+        const orgId = postTarget === 'business' ? (localStorage.getItem('li_org_id') || null) : null;
         const res = await fetch('/api/linkedin/publish', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -375,7 +376,8 @@ export default function CreatePostPage() {
 
         if (imageUrl) {
           setStatusMsg('Publishing to LinkedIn…');
-          const orgId = localStorage.getItem('li_org_id') || null;
+          const postTarget = localStorage.getItem('li_post_target') || 'personal';
+          const orgId = postTarget === 'business' ? (localStorage.getItem('li_org_id') || null) : null;
           const liRes = await fetch('/api/linkedin/publish', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

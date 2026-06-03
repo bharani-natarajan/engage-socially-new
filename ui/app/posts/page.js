@@ -6,7 +6,7 @@ import PostCard from '@/components/PostCard';
 import PlatformTabs from '@/components/PlatformTabs';
 
 export default function PostsPage() {
-  const [platform, setPlatform] = useState('instagram');
+  const [platform, setPlatform] = useState('linkedin');
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

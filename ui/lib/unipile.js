@@ -121,9 +121,10 @@ export async function getPostComments(postSocialId, accountId) {
   return req(`/posts/${encodeURIComponent(postSocialId)}/comments?account_id=${encodeURIComponent(accountId)}`);
 }
 
-export async function replyToComment(postSocialId, commentId, text, accountId) {
+export async function replyToComment(postSocialId, commentId, text, accountId, organizationId = null) {
   const body = { account_id: accountId, text };
   if (commentId) body.comment_id = commentId;
+  if (organizationId) body.as_organization = organizationId;
   return req(`/posts/${encodeURIComponent(postSocialId)}/comments`, {
     method: 'POST',
     body,

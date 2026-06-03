@@ -25,9 +25,9 @@ function LiIcon() {
 }
 
 const TABS = [
+  { value: 'linkedin',  label: 'LinkedIn',  icon: <LiIcon />, activeColor: 'border-[#0A66C2] text-[#0A66C2]' },
   { value: 'instagram', label: 'Instagram', icon: <IgIcon />, activeColor: 'border-lord-green text-lord-green' },
   { value: 'facebook',  label: 'Facebook',  icon: <FbIcon />, activeColor: 'border-[#1877F2] text-[#1877F2]' },
-  { value: 'linkedin',  label: 'LinkedIn',  icon: <LiIcon />, activeColor: 'border-[#0A66C2] text-[#0A66C2]' },
 ];
 
 export default function PlatformTabs({ platform, onChange }) {

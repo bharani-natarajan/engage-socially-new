@@ -103,7 +103,7 @@ function CommentRow({ comment, onReplied, platform = 'instagram' }) {
 }
 
 export default function DashboardPage() {
-  const [platform, setPlatform] = useState('instagram');
+  const [platform, setPlatform] = useState('linkedin');
   const [latestPost, setLatestPost] = useState(null);
   const [topComments, setTopComments] = useState([]);
   const [totalLikes, setTotalLikes] = useState(0);

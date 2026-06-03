@@ -22,7 +22,7 @@ function Avatar({ name, size = 'md' }) {
 }
 
 export default function MessagesPage() {
-  const [platform, setPlatform] = useState('instagram');
+  const [platform, setPlatform] = useState('linkedin');
   const [conversations, setConversations] = useState([]);
   const [loadingConvos, setLoadingConvos] = useState(true);
   const [convosError, setConvosError] = useState('');

@@ -56,9 +56,20 @@ export async function runExecutorJob() {
       const postId = comment.postId;
       const message = comment.commentText;
 
+      const postTarget = comment.workflow.user?.linkedinPostTarget || 'personal';
+      const orgId = postTarget === 'business' ? (comment.workflow.user?.linkedinOrgId || null) : null;
+
       try {
-        console.log(`[Executor Cron] Posting comment ${comment.id} to LinkedIn post ${postId} using account ${accountId}...`);
+        console.log(`[Executor Cron] Posting comment ${comment.id} to LinkedIn post ${postId} using account ${accountId} (as_org=${orgId ?? 'none'})...`);
         
+        const bodyObj = {
+          account_id: accountId,
+          text: message
+        };
+        if (orgId) {
+          bodyObj.as_organization = orgId;
+        }
+
         const response = await fetch(`${unipileBaseUrl}/posts/${encodeURIComponent(postId)}/comments`, {
           method: 'POST',
           headers: {
@@ -66,10 +77,7 @@ export async function runExecutorJob() {
             'Content-Type': 'application/json',
             'Accept': 'application/json'
           },
-          body: JSON.stringify({
-            account_id: accountId,
-            text: message
-          })
+          body: JSON.stringify(bodyObj)
         });
 
         let data = {};
