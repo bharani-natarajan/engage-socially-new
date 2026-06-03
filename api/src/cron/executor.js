@@ -15,6 +15,7 @@ export async function runExecutorJob() {
           not: null
         }
       },
+      take: 5, // Process at most 5 comments per run to prevent Vercel execution timeouts
       include: {
         workflow: {
           include: {
@@ -71,10 +72,18 @@ export async function runExecutorJob() {
           })
         });
 
-        const data = await response.json();
+        let data = {};
+        try {
+          data = await response.json();
+        } catch (jsonErr) {
+          // Response might not be JSON (e.g. gateway timeout or proxy errors)
+        }
 
         if (!response.ok) {
-          throw new Error(data.message || data.error || JSON.stringify(data) || `Unipile responded with status ${response.status}`);
+          const errMsg = data.message || data.error || JSON.stringify(data) || `Unipile responded with status ${response.status}`;
+          const err = new Error(errMsg);
+          err.status = response.status;
+          throw err;
         }
 
         // 3. Mark as posted on success
@@ -91,12 +100,46 @@ export async function runExecutorJob() {
       } catch (postError) {
         console.error(`[Executor Cron] Failed to post comment ${comment.id}:`, postError.message);
 
-        // 4. Mark as failed on error
+        // Check if error is transient/retryable (network issue or server error / rate limit)
+        const isNetworkError = postError.message.includes('fetch failed') || !postError.status;
+        const isTemporaryServerError = postError.status === 429 || postError.status >= 500;
+        const shouldRetry = isNetworkError || isTemporaryServerError;
+
+        if (shouldRetry) {
+          let retryCount = 0;
+          if (comment.errorMessage && comment.errorMessage.startsWith('[Retry ')) {
+            const match = comment.errorMessage.match(/\[Retry (\d+)\/3\]/);
+            if (match) {
+              retryCount = parseInt(match[1], 10);
+            }
+          }
+
+          if (retryCount < 3) {
+            const nextRetry = retryCount + 1;
+            const delayMinutes = nextRetry * 5; // Backoff: 5m, 10m, 15m
+            const nextRun = new Date(Date.now() + delayMinutes * 60 * 1000);
+            
+            console.log(`[Executor Cron] Comment ${comment.id} failed due to a transient issue. Rescheduling for retry ${nextRetry}/3 at ${nextRun.toISOString()}.`);
+            
+            await prisma.workflowComment.update({
+              where: { id: comment.id },
+              data: {
+                status: 'scheduled',
+                scheduledAt: nextRun,
+                errorMessage: `[Retry ${nextRetry}/3] ${postError.message}`
+              }
+            });
+            continue;
+          }
+        }
+
+        // 4. Mark as failed permanently on max retries or non-retryable error (e.g. 404)
+        const errorPrefix = shouldRetry ? `[Failed after 3 retries] ` : '';
         await prisma.workflowComment.update({
           where: { id: comment.id },
           data: {
             status: 'failed',
-            errorMessage: postError.message
+            errorMessage: `${errorPrefix}${postError.message}`
           }
         });
       }

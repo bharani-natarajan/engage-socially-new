@@ -78,6 +78,20 @@ export default function TopNav() {
 
       {/* Right: Actions */}
       <div className="flex items-center gap-5">
+        {/* Users button (only for admins) */}
+        {isAdmin && (
+          <Link
+            href="/admin"
+            className={`px-5 py-2.5 rounded-full text-[15px] font-medium transition-all ${
+              pathname.startsWith('/admin')
+                ? 'bg-lord-green text-lord-card'
+                : 'text-lord-text-muted hover:text-lord-text-main'
+            }`}
+          >
+            Users
+          </Link>
+        )}
+
         {/* Search */}
         <div className="relative hidden lg:block">
           <svg className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -89,34 +103,6 @@ export default function TopNav() {
             className="w-[200px] bg-[#f4f5f7] border-none rounded-full py-2.5 pl-11 pr-4 text-[15px] focus:outline-none focus:ring-1 focus:ring-lord-border text-lord-text-main placeholder-gray-400 transition-all font-medium"
           />
         </div>
-
-        {/* Notifications / Messages */}
-        <div className="flex items-center gap-2">
-          <button className="w-10 h-10 flex items-center justify-center text-lord-text-main hover:bg-[#f4f5f7] rounded-full transition-colors relative">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-              <polyline points="22,6 12,13 2,6" />
-            </svg>
-            <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white" />
-          </button>
-          
-          <button className="w-10 h-10 flex items-center justify-center text-lord-text-main hover:bg-[#f4f5f7] rounded-full transition-colors relative">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-               <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Users button (only for admins) */}
-        {isAdmin && (
-          <Link
-            href="/admin"
-            className="px-5 py-2.5 rounded-full bg-lord-green text-lord-card text-[15px] font-semibold hover:opacity-90 transition-opacity"
-          >
-            Users
-          </Link>
-        )}
 
         {/* Profile Avatar with Dropdown */}
         <div className="relative" ref={dropdownRef}>

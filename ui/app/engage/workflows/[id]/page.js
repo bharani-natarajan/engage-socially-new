@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { workflowApi } from '@/lib/workflowApi';
 import ActionLoader from '@/components/ActionLoader';
+import { useAuth } from '@/lib/auth';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -227,6 +228,7 @@ function CommentCard({ comment, timezone, onApprove, onPostNow, onDelete, isPost
 export default function WorkflowCommentsPage({ params }) {
   const { id } = use(params);
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
 
   const [userId, setUserId] = useState(null);
   const [workflow, setWorkflow] = useState(null);
@@ -255,36 +257,50 @@ export default function WorkflowCommentsPage({ params }) {
   useEffect(() => { commentsRef.current = comments; }, [comments]);
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+    const currentUserId = user.id;
+    setUserId(currentUserId);
     setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);
-    fetch('/api/me')
-      .then(r => r.json())
-      .then(async d => {
-        if (!d.userId) { router.push('/engage?tab=workflows'); return; }
-        setUserId(d.userId);
 
+    async function loadData() {
+      try {
         // Run the scheduler job immediately for this workflow in background (do not block render)
-        try {
-          const brandContext = localStorage.getItem('setting_ai_context') ?? '';
-          const tone = localStorage.getItem('setting_ai_tone') ?? 'professional';
-          const avoid = localStorage.getItem('setting_ai_avoid') ?? '';
-          workflowApi.run(d.userId, id, { brandContext, tone, avoid })
-            .catch(runErr => console.error('[Workflow Run Error]', runErr));
-        } catch (err) {
-          console.error('[Workflow Run Settings Error]', err);
-        }
+        const brandContext = localStorage.getItem('setting_ai_context') ?? '';
+        const tone = localStorage.getItem('setting_ai_tone') ?? 'professional';
+        const avoid = localStorage.getItem('setting_ai_avoid') ?? '';
+        workflowApi.run(currentUserId, id, { brandContext, tone, avoid })
+          .catch(runErr => console.error('[Workflow Run Error]', runErr));
 
         const [wfRes, cmRes] = await Promise.all([
-          workflowApi.list(d.userId),
-          workflowApi.listComments(d.userId, id),
+          workflowApi.list(currentUserId),
+          workflowApi.listComments(currentUserId, id),
         ]);
         const wf = (wfRes.data ?? []).find(w => w.id === id);
         if (!wf) { router.push('/engage?tab=workflows'); return; }
         setWorkflow(wf);
         setComments(cmRes.data ?? []);
-      })
-      .catch(() => router.push('/engage?tab=workflows'))
-      .finally(() => setLoading(false));
-  }, [id, router]);
+      } catch (err) {
+        console.error(err);
+        router.push('/engage?tab=workflows');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
+  }, [id, router, user, authLoading]);
+
+  if (authLoading) {
+    return <ActionLoader message="Loading account session..." />;
+  }
+
+  if (!user || !userId) {
+    return null;
+  }
 
 
 

@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { workflowApi } from '@/lib/workflowApi';
 import ActionLoader from '@/components/ActionLoader';
+import { useAuth } from '@/lib/auth';
 
 // ─── shared helpers ────────────────────────────────────────────────────────────
 
@@ -2129,6 +2130,7 @@ function SearchTab() {
 // ─── Root Page ─────────────────────────────────────────────────────────────────
 
 export default function EngagePage() {
+  const { user, loading: authLoading } = useAuth();
   const [activeMenu, setActiveMenu] = useState('analytics');
   const [userId, setUserId] = useState(null);
   const router = useRouter();
@@ -2146,19 +2148,29 @@ export default function EngagePage() {
   };
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+    setUserId(user.id);
+  }, [user, authLoading, router]);
+
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab');
     if (tab === 'workflows') setActiveMenu('workflows');
     else if (tab === 'comments') setActiveMenu('comments');
     else if (tab === 'engage') setActiveMenu('engage');
-
-    fetch('/api/me')
-      .then(r => r.json())
-      .then(d => {
-        if (d.userId) setUserId(d.userId);
-      })
-      .catch(console.error);
   }, []);
+
+  if (authLoading) {
+    return <ActionLoader message="Loading account session..." />;
+  }
+
+  if (!user || !userId) {
+    return null;
+  }
 
   return (
     <div className="flex flex-col lg:flex-row gap-8 min-h-[calc(100vh-140px)]">

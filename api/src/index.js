@@ -62,6 +62,14 @@ app.use('/workflows', workflowsRouter);
 app.use('/comments', commentsRouter);
 app.use('/analytics', analyticsRouter);
 
+app.get('/', (_req, res) => {
+  res.json({
+    status: 'active',
+    message: 'Welcome to the Engage Socially API. All services are operational.',
+    timestamp: new Date().toISOString()
+  });
+});
+
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
 app.use((err, _req, res, _next) => {

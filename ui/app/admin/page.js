@@ -1,32 +1,23 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import Link from 'next/link';
 import { adminApi } from '@/lib/adminApi';
-import { workflowApi } from '@/lib/workflowApi';
 import { useAuth } from '@/lib/auth';
+import ActionLoader from '@/components/ActionLoader';
 
 export default function AdminPage() {
-  const { token, isAdmin } = useAuth();
+  const { token, isAdmin, loading: authLoading } = useAuth();
   
   // States
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
-  const [workflows, setWorkflows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Modal / Form state for user creation
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [createUserForm, setCreateUserForm] = useState({ firstName: '', lastName: '', email: '', phone: '', role: 'user' });
-  const [createLoading, setCreateLoading] = useState(false);
-  const [createError, setCreateError] = useState('');
-
-  // Link workflows state
-  const [showLinkModal, setShowLinkModal] = useState(false);
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [selectedWorkflows, setSelectedWorkflows] = useState([]);
-  const [linkLoading, setLinkLoading] = useState(false);
-  const [linkError, setLinkError] = useState('');
+  // Delete confirm modal state
+  const [deleteUserId, setDeleteUserId] = useState(null);
 
   useEffect(() => {
     if (token && isAdmin) {
@@ -38,14 +29,12 @@ export default function AdminPage() {
     setLoading(true);
     setError('');
     try {
-      const [statsRes, usersRes, workflowsRes] = await Promise.all([
+      const [statsRes, usersRes] = await Promise.all([
         adminApi.getStats(),
-        adminApi.listUsers({ limit: 100 }),
-        workflowApi.list()
+        adminApi.listUsers({ limit: 100 })
       ]);
       setStats(statsRes.data);
       setUsers(usersRes.data);
-      setWorkflows(workflowsRes.data);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -53,54 +42,22 @@ export default function AdminPage() {
     }
   }
 
-  async function handleCreateUser(e) {
-    e.preventDefault();
-    setCreateError('');
-    setCreateLoading(true);
+  async function confirmDeleteUser() {
+    if (!deleteUserId) return;
+    const userId = deleteUserId;
+    setDeleteUserId(null);
     try {
-      await adminApi.createUser(createUserForm);
-      setShowCreateModal(false);
-      setCreateUserForm({ firstName: '', lastName: '', email: '', phone: '', role: 'user' });
-      loadData();
-    } catch (err) {
-      setCreateError(err.message);
-    } finally {
-      setCreateLoading(false);
-    }
-  }
-
-  async function handleLinkWorkflows(e) {
-    e.preventDefault();
-    if (!selectedUser || selectedWorkflows.length === 0) return;
-    setLinkError('');
-    setLinkLoading(true);
-    try {
-      await adminApi.linkWorkflows(selectedUser.id, selectedWorkflows);
-      setShowLinkModal(false);
-      setSelectedWorkflows([]);
-      setSelectedUser(null);
-      loadData();
-    } catch (err) {
-      setLinkError(err.message);
-    } finally {
-      setLinkLoading(false);
-    }
-  }
-
-  function toggleWorkflowSelection(wfId) {
-    setSelectedWorkflows(prev => 
-      prev.includes(wfId) ? prev.filter(id => id !== wfId) : [...prev, wfId]
-    );
-  }
-
-  async function handleDeleteUser(userId) {
-    if (!confirm('Are you sure you want to delete this user? All their workflows and comments will be deleted.')) return;
-    try {
+      setLoading(true);
       await adminApi.deleteUser(userId);
-      loadData();
+      await loadData();
     } catch (err) {
-      alert(err.message);
+      setError(err.message);
+      setLoading(false);
     }
+  }
+
+  if (authLoading) {
+    return <ActionLoader message="Loading admin session..." />;
   }
 
   if (!isAdmin) {
@@ -119,15 +76,15 @@ export default function AdminPage() {
           <h1 className="text-2xl font-bold text-lord-text-main">Admin Dashboard</h1>
           <p className="text-lord-text-muted mt-1 text-[15px]">Manage users, view stats, and link workflow configurations.</p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
+        <Link
+          href="/admin/create-user"
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-lord-green text-lord-text-main text-sm font-semibold hover:bg-lord-green-dark transition-all shadow-sm"
         >
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
           </svg>
           Create User
-        </button>
+        </Link>
       </div>
 
       {error && (
@@ -158,9 +115,6 @@ export default function AdminPage() {
 
           {/* Users Table */}
           <div className="bg-white border border-lord-border rounded-3xl overflow-hidden shadow-sm">
-            <div className="px-6 py-4.5 border-b border-lord-border">
-              <h2 className="font-bold text-lord-text-main text-[16px]">All Users</h2>
-            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
@@ -178,23 +132,36 @@ export default function AdminPage() {
                       <td className="px-5 py-4 align-middle font-bold text-lord-text-main">{u.firstName} {u.lastName}</td>
                       <td className="px-5 py-4 align-middle text-lord-text-muted">{u.email}</td>
                       <td className="px-5 py-4 align-middle whitespace-nowrap">
-                        <span className={`px-2.5 py-0.5 rounded-full border text-xs font-bold ${u.role === 'admin' ? 'bg-lord-teal/10 text-lord-teal border-lord-teal/20' : 'bg-lord-green-light text-lord-green-dark border-lord-green-dark/20'}`}>
+                        <span className={`px-3.5 py-1.5 rounded-full border text-[13px] font-bold ${
+                          u.role === 'admin' 
+                            ? 'bg-lord-teal/10 text-lord-teal border-lord-teal/20' 
+                            : 'bg-lord-green-light text-lord-green-dark border-lord-green-dark/20'
+                        }`}>
                           {u.role}
                         </span>
                       </td>
                       <td className="px-5 py-4 align-middle font-bold text-lord-text-main">{u.workflowCount}</td>
                       <td className="px-5 py-4 align-middle text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-2.5">
-                          <button
-                            onClick={() => { setSelectedUser(u); setShowLinkModal(true); }}
-                            className="px-3 py-1.5 rounded-xl bg-lord-green text-lord-text-main text-[13px] font-bold hover:bg-lord-green-dark transition-colors shadow-sm"
+                          <Link
+                            href={`/admin/users/${u.id}/edit`}
+                            className="px-3.5 py-2 rounded-xl bg-lord-card border border-lord-border text-lord-text-main text-[13px] font-bold hover:bg-lord-bg transition-colors shadow-sm"
+                            title="Edit user details"
                           >
-                            Link Workflows
-                          </button>
+                            Edit
+                          </Link>
+                          <Link
+                            href={`/admin/users/${u.id}`}
+                            className="px-3.5 py-2 rounded-xl bg-lord-green text-lord-text-main text-[13px] font-bold hover:bg-lord-green-dark transition-colors shadow-sm"
+                            title="View user details and link workflows"
+                          >
+                            View
+                          </Link>
                           {u.role !== 'admin' && (
                             <button
-                              onClick={() => handleDeleteUser(u.id)}
-                              className="px-3 py-1.5 rounded-xl bg-lord-red/10 text-red-600 text-[13px] font-bold hover:bg-lord-red/30 hover:text-red-700 transition-colors border border-lord-red/20 shadow-sm"
+                              onClick={() => setDeleteUserId(u.id)}
+                              className="px-3.5 py-2 rounded-xl bg-red-50 border border-red-200/60 text-red-600 text-[13px] font-bold hover:bg-red-100 transition-colors shadow-sm"
+                              title="Delete user"
                             >
                               Delete
                             </button>
@@ -210,135 +177,57 @@ export default function AdminPage() {
         </>
       )}
 
-      {/* CREATE USER MODAL */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-md p-6 border border-lord-border shadow-xl">
-            <h2 className="text-xl font-bold text-lord-text-main mb-4">Create User Account</h2>
-            {createError && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-600 font-semibold">{createError}</div>}
-            <form onSubmit={handleCreateUser} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-lord-text-muted mb-1 uppercase tracking-wider">First Name</label>
-                  <input
-                    required
-                    value={createUserForm.firstName}
-                    onChange={e => setCreateUserForm(p => ({ ...p, firstName: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-lord-border focus:border-lord-green focus:outline-none text-[14px]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-lord-text-muted mb-1 uppercase tracking-wider">Last Name</label>
-                  <input
-                    required
-                    value={createUserForm.lastName}
-                    onChange={e => setCreateUserForm(p => ({ ...p, lastName: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-lord-border focus:border-lord-green focus:outline-none text-[14px]"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-lord-text-muted mb-1 uppercase tracking-wider">Email Address</label>
-                <input
-                  type="email"
-                  required
-                  value={createUserForm.email}
-                  onChange={e => setCreateUserForm(p => ({ ...p, email: e.target.value }))}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-lord-border focus:border-lord-green focus:outline-none text-[14px]"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-lord-text-muted mb-1 uppercase tracking-wider">Phone</label>
-                <input
-                  type="tel"
-                  value={createUserForm.phone}
-                  onChange={e => setCreateUserForm(p => ({ ...p, phone: e.target.value }))}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-lord-border focus:border-lord-green focus:outline-none text-[14px]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-lord-text-muted mb-1 uppercase tracking-wider">Role</label>
-                <select
-                  value={createUserForm.role}
-                  onChange={e => setCreateUserForm(p => ({ ...p, role: e.target.value }))}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-lord-border focus:border-lord-green focus:outline-none text-[14px] bg-white font-semibold text-lord-text-main"
-                >
-                  <option value="user">User</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </div>
-              <div className="flex gap-3 justify-end pt-3">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 border border-lord-border rounded-full text-[13.5px] font-bold text-lord-text-muted hover:bg-lord-card/50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={createLoading}
-                  className="px-4 py-2 bg-lord-green text-white font-bold rounded-full text-[13.5px] disabled:opacity-50 hover:bg-lord-green-dark"
-                >
-                  {createLoading ? 'Creating...' : 'Create'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* LINK WORKFLOWS MODAL */}
-      {showLinkModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-md p-6 border border-lord-border shadow-xl">
-            <h2 className="text-xl font-bold text-lord-text-main mb-2">Link Workflows</h2>
-            <p className="text-lord-text-muted text-[13.5px] mb-4">Select workflows to assign to <strong className="text-lord-text-main">{selectedUser?.firstName} {selectedUser?.lastName}</strong>.</p>
-            
-            {linkError && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-600 font-semibold">{linkError}</div>}
-            
-            <form onSubmit={handleLinkWorkflows} className="space-y-4">
-              <div className="max-h-60 overflow-y-auto border border-lord-border rounded-2xl divide-y divide-lord-border p-2 bg-lord-card/10">
-                {workflows.map(wf => (
-                  <label key={wf.id} className="flex items-center gap-3 px-3 py-2.5 hover:bg-lord-card/25 rounded-xl cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={selectedWorkflows.includes(wf.id)}
-                      onChange={() => toggleWorkflowSelection(wf.id)}
-                      className="w-4.5 h-4.5 accent-lord-green"
-                    />
-                    <div className="text-left">
-                      <p className="text-[14px] font-bold text-lord-text-main leading-tight">{wf.name}</p>
-                      <p className="text-[11px] font-semibold text-lord-text-muted capitalize mt-0.5">{wf.type} &bull; {wf.creatorName || wf.keyword}</p>
-                    </div>
-                  </label>
-                ))}
-                {workflows.length === 0 && (
-                  <p className="text-center py-6 text-[13.5px] text-lord-text-muted">No workflows found</p>
-                )}
-              </div>
-
-              <div className="flex gap-3 justify-end pt-3">
-                <button
-                  type="button"
-                  onClick={() => { setShowLinkModal(false); setSelectedWorkflows([]); }}
-                  className="px-4 py-2 border border-lord-border rounded-full text-[13.5px] font-bold text-lord-text-muted hover:bg-lord-card/50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={linkLoading || selectedWorkflows.length === 0}
-                  className="px-4 py-2 bg-lord-teal text-white font-bold rounded-full text-[13.5px] disabled:opacity-50 hover:bg-lord-teal-dark"
-                >
-                  {linkLoading ? 'Linking...' : 'Link'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {/* DELETE CONFIRMATION MODAL */}
+      {deleteUserId && (
+        <DeleteConfirmModal
+          title="Delete User Account"
+          message="Are you sure you want to delete this user? All their workflows and comments will be permanently deleted."
+          onConfirm={confirmDeleteUser}
+          onCancel={() => setDeleteUserId(null)}
+        />
       )}
     </div>
+  );
+}
+
+function DeleteConfirmModal({ title, message, onConfirm, onCancel }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-xl border border-lord-border p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+        <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6" /><path d="M14 11v6" />
+          </svg>
+        </div>
+        <div className="space-y-1.5 text-left">
+          <h3 className="text-base font-bold text-lord-text-main">{title || 'Confirm Action'}</h3>
+          <p className="text-xs text-lord-text-muted leading-relaxed">
+            {message || 'Are you sure you want to proceed?'}
+          </p>
+        </div>
+        <div className="flex items-center gap-3 pt-2">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-2.5 rounded-xl border border-lord-border text-xs font-bold text-lord-text-muted hover:bg-lord-card transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-xs font-bold hover:bg-red-700 transition-colors shadow-sm"
+          >
+            Confirm
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 }

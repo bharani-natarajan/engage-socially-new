@@ -19,6 +19,12 @@ async function apiFetch(path, { method = 'GET', body } = {}) {
   });
   const data = await res.json();
   if (!res.ok) {
+    if (res.status === 401) {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_user');
+      window.location.href = '/login';
+      return;
+    }
     throw new Error(data.error || `Request failed (${res.status})`);
   }
   return data;
@@ -32,5 +38,7 @@ export const adminApi = {
   },
   createUser: (userData) => apiFetch('/admin/users', { method: 'POST', body: userData }),
   deleteUser: (userId) => apiFetch(`/admin/users/${userId}`, { method: 'DELETE' }),
-  linkWorkflows: (userId, workflowIds) => apiFetch(`/admin/users/${userId}/link-workflows`, { method: 'POST', body: { workflowIds } }),
+  getUser: (userId) => apiFetch(`/admin/users/${userId}`),
+  updateUser: (userId, userData) => apiFetch(`/admin/users/${userId}`, { method: 'PATCH', body: userData }),
+  linkWorkflows: (userId, workflowIds) => apiFetch('/admin/link-workflows', { method: 'POST', body: { userId, workflowIds } }),
 };

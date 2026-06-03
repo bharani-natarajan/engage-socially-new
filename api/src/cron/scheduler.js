@@ -154,9 +154,16 @@ export async function runSchedulerJob(workflowId = null, options = {}) {
       });
       if (wf) workflows.push(wf);
     } else {
-      workflows = await prisma.workflow.findMany({
+      // In serverless/production, we only process the workflow that hasn't been run for the longest time to prevent Vercel timeouts.
+      // This rotates through workflows one-by-one on subsequent cron requests.
+      const oldestWorkflow = await prisma.workflow.findFirst({
+        orderBy: [
+          { lastRunAt: 'asc' },
+          { createdAt: 'asc' }
+        ],
         include: { user: true }
       });
+      if (oldestWorkflow) workflows.push(oldestWorkflow);
     }
 
     if (workflows.length === 0) {
