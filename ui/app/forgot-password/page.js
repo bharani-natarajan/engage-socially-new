@@ -65,20 +65,11 @@ export default function ForgotPasswordPage() {
         </form>
       )}
 
-      {step === 'email' && (
-        <div className="mt-4 bg-lord-card p-3 rounded-xl border border-lord-border text-center text-xs text-lord-text-muted">
-          Static OTP for testing: <span className="font-bold text-lord-green">758369</span>
-        </div>
-      )}
-
       {step === 'otp' && (
         <div className="space-y-6">
           <div className="text-center"><p className="text-sm text-lord-text-muted mb-1">Code sent to</p><p className="font-semibold text-lord-text-main">{email}</p></div>
           <OtpInput onComplete={handleOtpComplete} disabled={loading}/>
           <div className="text-center"><button onClick={handleResend} disabled={resending} className="text-sm text-lord-green font-medium disabled:text-lord-text-muted">{resending?'Resent — wait 30s':'Resend OTP'}</button></div>
-          <div className="bg-lord-card p-3 rounded-xl border border-lord-border text-center text-xs text-lord-text-muted">
-            Static OTP for testing: <span className="font-bold text-lord-green">758369</span>
-          </div>
           <button onClick={()=>{setStep('email');setError('');}} className="w-full py-3 text-sm text-lord-text-muted hover:text-lord-text-main font-medium">← Back</button>
         </div>
       )}

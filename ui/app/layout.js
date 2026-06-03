@@ -21,11 +21,12 @@ export default async function RootLayout({ children }) {
   const hasFbToken = !!store.get('fb_page_id')?.value;
   const manualToken = process.env.MANUAL_IG_ACCESS_TOKEN;
 
+  const hasManualFailed = !!store.get('manual_auth_failed')?.value;
   const hasError = search.includes('error=');
 
   const isPublicPath = PUBLIC_PATHS.includes(pathname);
 
-  if (!isPublicPath && pathname !== '/settings' && (!isConnected || !hasFbToken) && manualToken && !hasError) {
+  if (!isPublicPath && pathname !== '/settings' && (!isConnected || !hasFbToken) && manualToken && !hasError && !hasManualFailed) {
     redirect(`/api/auth/manual?token=${manualToken}&redirect=${encodeURIComponent(pathname + search)}`);
   }
 

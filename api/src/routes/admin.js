@@ -99,7 +99,6 @@ router.post('/users', async (req, res, next) => {
     const { firstName, lastName, email, phone, role } = req.body;
 
     if (!firstName?.trim()) return res.status(400).json({ error: 'First name is required' });
-    if (!lastName?.trim()) return res.status(400).json({ error: 'Last name is required' });
     if (!email?.trim()) return res.status(400).json({ error: 'Email is required' });
 
     const existing = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
@@ -108,7 +107,7 @@ router.post('/users', async (req, res, next) => {
     const user = await prisma.user.create({
       data: {
         firstName: firstName.trim(),
-        lastName: lastName.trim(),
+        lastName: lastName?.trim() ?? '',
         email: email.trim().toLowerCase(),
         phone: phone?.trim() ?? '',
         role: role === 'admin' ? 'admin' : 'user',

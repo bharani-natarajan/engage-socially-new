@@ -74,6 +74,8 @@ export async function GET(request) {
     store.set('fb_page_id', page.id, base);
     store.set('fb_page_name', page.name ?? '', { ...base, httpOnly: false });
 
+    store.delete('manual_auth_failed');
+
     const redirectTo = searchParams.get('redirect') || '/';
     const safeRedirect = redirectTo.startsWith('/') ? redirectTo : '/';
     const redirectUrl = new URL(safeRedirect, APP_URL);
@@ -82,6 +84,16 @@ export async function GET(request) {
     return NextResponse.redirect(redirectUrl.toString());
   } catch (err) {
     console.error('[Manual Auth Error]', err.message);
+    const isHttps = APP_URL.startsWith('https');
+    const store = await cookies();
+    store.set('manual_auth_failed', 'true', {
+      httpOnly: true,
+      secure: isHttps,
+      sameSite: isHttps ? 'none' : 'lax',
+      path: '/',
+      maxAge: 5 * 60,
+    });
+
     const redirectTo = searchParams.get('redirect') || '/';
     const safeRedirect = redirectTo.startsWith('/') ? redirectTo : '/';
     const redirectUrl = new URL(safeRedirect, APP_URL);

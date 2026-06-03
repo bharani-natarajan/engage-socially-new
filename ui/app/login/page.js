@@ -29,6 +29,11 @@ export default function LoginPage() {
         const url = new URL(window.location.href);
         url.searchParams.delete('registered');
         window.history.replaceState({}, '', url.pathname + url.search);
+
+        const timer = setTimeout(() => {
+          setRegistered(false);
+        }, 5000);
+        return () => clearTimeout(timer);
       }
     }
   }, []);
@@ -92,7 +97,7 @@ export default function LoginPage() {
         </div>
       )}
 
-      {registered && (
+      {step === 'credentials' && registered && (
         <div className="mb-6 p-3 bg-green-50 border border-green-200 rounded-xl text-sm text-green-700 flex items-center gap-2">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
           Account created successfully! Please sign in.
@@ -128,10 +133,6 @@ export default function LoginPage() {
             ) : 'Send OTP'}
           </button>
 
-          <div className="bg-lord-card p-3 rounded-xl border border-lord-border text-center text-xs text-lord-text-muted">
-            Static OTP for testing: <span className="font-bold text-lord-green">758369</span>
-          </div>
-
           <p className="text-center text-sm text-lord-text-muted">
             Don&apos;t have an account?{' '}
             <Link href="/signup" className="text-lord-green hover:text-lord-green-dark font-semibold transition-colors">
@@ -162,10 +163,6 @@ export default function LoginPage() {
             >
               {resending ? 'OTP resent — wait 30s' : 'Resend OTP'}
             </button>
-          </div>
-
-          <div className="bg-lord-card p-3 rounded-xl border border-lord-border text-center text-xs text-lord-text-muted">
-            Static OTP for testing: <span className="font-bold text-lord-green">758369</span>
           </div>
 
           <button

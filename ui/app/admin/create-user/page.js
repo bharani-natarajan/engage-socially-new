@@ -18,6 +18,12 @@ export default function CreateUserPage() {
     phone: '',
     role: 'user',
   });
+  const [fieldErrors, setFieldErrors] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -33,12 +39,87 @@ export default function CreateUserPage() {
     );
   }
 
+  const handlePhoneChange = (e) => {
+    const cleanValue = e.target.value.replace(/\D/g, '').slice(0, 10);
+    setForm((p) => ({ ...p, phone: cleanValue }));
+    if (fieldErrors.phone) {
+      setFieldErrors(prev => ({ ...prev, phone: '' }));
+    }
+  };
+
+  const handleFirstNameChange = (e) => {
+    const val = e.target.value;
+    setForm((p) => ({ ...p, firstName: val }));
+    if (fieldErrors.firstName) {
+      setFieldErrors(prev => ({ ...prev, firstName: '' }));
+    }
+  };
+
+  const handleLastNameChange = (e) => {
+    const val = e.target.value;
+    setForm((p) => ({ ...p, lastName: val }));
+    if (fieldErrors.lastName) {
+      setFieldErrors(prev => ({ ...prev, lastName: '' }));
+    }
+  };
+
+  const handleEmailChange = (e) => {
+    const val = e.target.value;
+    setForm((p) => ({ ...p, email: val }));
+    if (fieldErrors.email) {
+      setFieldErrors(prev => ({ ...prev, email: '' }));
+    }
+  };
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
+
+    const errors = { firstName: '', lastName: '', email: '', phone: '' };
+    let hasFieldErrors = false;
+
+    const fName = form.firstName.trim();
+    const lName = form.lastName.trim();
+    const emailStr = form.email.trim();
+    const phoneStr = form.phone.trim();
+
+    if (!fName) {
+      errors.firstName = 'First Name is required.';
+      hasFieldErrors = true;
+    } else if (/^\d/.test(fName)) {
+      errors.firstName = 'First Name cannot start with a number.';
+      hasFieldErrors = true;
+    }
+
+    if (lName && /^\d/.test(lName)) {
+      errors.lastName = 'Last Name cannot start with a number.';
+      hasFieldErrors = true;
+    }
+
+    if (!emailStr) {
+      errors.email = 'Email Address is required.';
+      hasFieldErrors = true;
+    } else {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(emailStr)) {
+        errors.email = 'Please enter a valid email address.';
+        hasFieldErrors = true;
+      }
+    }
+
+    if (phoneStr && phoneStr.length !== 10) {
+      errors.phone = 'Phone number must be exactly 10 digits.';
+      hasFieldErrors = true;
+    }
+
+    setFieldErrors(errors);
+    if (hasFieldErrors) {
+      return;
+    }
+
     setLoading(true);
     try {
-      await adminApi.createUser(form);
+      await adminApi.createUser({ ...form, firstName: fName, lastName: lName, email: emailStr, phone: phoneStr });
       router.push('/admin');
     } catch (err) {
       setError(err.message);
@@ -81,23 +162,24 @@ export default function CreateUserPage() {
                 required
                 type="text"
                 value={form.firstName}
-                onChange={(e) => setForm((p) => ({ ...p, firstName: e.target.value }))}
+                onChange={handleFirstNameChange}
                 placeholder="e.g. John"
                 className="w-full px-4 py-3 rounded-xl border border-lord-border focus:border-lord-green focus:ring-1 focus:ring-lord-green/20 focus:outline-none text-[14px] transition-all bg-lord-bg/30 text-lord-text-main font-semibold"
               />
+              {fieldErrors.firstName && <span className="text-red-500 text-xs mt-1 block font-semibold">{fieldErrors.firstName}</span>}
             </div>
             <div>
               <label className="block text-[11px] font-bold text-lord-text-muted mb-1.5 uppercase tracking-wider">
-                Last Name <span className="text-red-500">*</span>
+                Last Name
               </label>
               <input
-                required
                 type="text"
                 value={form.lastName}
-                onChange={(e) => setForm((p) => ({ ...p, lastName: e.target.value }))}
+                onChange={handleLastNameChange}
                 placeholder="e.g. Doe"
                 className="w-full px-4 py-3 rounded-xl border border-lord-border focus:border-lord-green focus:ring-1 focus:ring-lord-green/20 focus:outline-none text-[14px] transition-all bg-lord-bg/30 text-lord-text-main font-semibold"
               />
+              {fieldErrors.lastName && <span className="text-red-500 text-xs mt-1 block font-semibold">{fieldErrors.lastName}</span>}
             </div>
           </div>
 
@@ -109,10 +191,11 @@ export default function CreateUserPage() {
               required
               type="email"
               value={form.email}
-              onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+              onChange={handleEmailChange}
               placeholder="e.g. john.doe@example.com"
               className="w-full px-4 py-3 rounded-xl border border-lord-border focus:border-lord-green focus:ring-1 focus:ring-lord-green/20 focus:outline-none text-[14px] transition-all bg-lord-bg/30 text-lord-text-main font-semibold"
             />
+            {fieldErrors.email && <span className="text-red-500 text-xs mt-1 block font-semibold">{fieldErrors.email}</span>}
           </div>
 
           <div>
@@ -121,11 +204,13 @@ export default function CreateUserPage() {
             </label>
             <input
               type="tel"
+              maxLength={10}
               value={form.phone}
-              onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
-              placeholder="e.g. +1 (555) 000-0000"
+              onChange={handlePhoneChange}
+              placeholder="e.g. 9876543210"
               className="w-full px-4 py-3 rounded-xl border border-lord-border focus:border-lord-green focus:ring-1 focus:ring-lord-green/20 focus:outline-none text-[14px] transition-all bg-lord-bg/30 text-lord-text-main font-semibold"
             />
+            {fieldErrors.phone && <span className="text-red-500 text-xs mt-1 block font-semibold">{fieldErrors.phone}</span>}
           </div>
 
           <div>
