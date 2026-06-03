@@ -252,6 +252,7 @@ export async function runSchedulerJob(workflowId = null, options = {}) {
         const rawPosts = searchResult.items ?? searchResult.data ?? searchResult.posts ?? [];
         const posts = rawPosts
           .map(normalizeSearchPost)
+          .filter(p => p.id && !p.id.startsWith('urn:li:groupPost'))
           .sort((a, b) => {
             const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
             const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
