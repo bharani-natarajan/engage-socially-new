@@ -1,3 +1,5 @@
+
+
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
@@ -255,7 +257,10 @@ export default function CreatePostPage() {
   }, []);
 
   useEffect(() => {
-    if (!file) { if (!aiImageUrl) setPreview(null); return; }
+    if (!file) {
+      setPreview(aiImageUrl || null);
+      return;
+    }
     const url = URL.createObjectURL(file);
     setPreview(url);
     return () => URL.revokeObjectURL(url);

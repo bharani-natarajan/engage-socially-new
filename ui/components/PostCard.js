@@ -24,7 +24,10 @@ export default function PostCard({ post, platform = 'instagram', onDelete }) {
   }, [post.id, platform]);
 
   const thumb = post.thumbnail_url ?? post.media_url;
-  const date = new Date(post.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const isValidDate = post.timestamp && !isNaN(new Date(post.timestamp).getTime()) && new Date(post.timestamp).getTime() > 0;
+  const date = isValidDate
+    ? new Date(post.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    : 'Recent';
   const isFacebook = platform === 'facebook';
   const isLinkedIn = platform === 'linkedin';
   const postHref = isFacebook

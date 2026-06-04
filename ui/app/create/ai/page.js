@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
@@ -55,14 +56,29 @@ export default function AIGeneratePage() {
     setImages([]);
 
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       // Step 1: Submit job
       const formData = new FormData();
       formData.append('image', file);
       formData.append('prompt', prompt.trim());
 
-      const submitRes = await fetch('/api/generate', { method: 'POST', body: formData });
+      const submitRes = await fetch('/api/generate', { 
+        method: 'POST', 
+        headers,
+        body: formData 
+      });
       const submitData = await submitRes.json();
       if (!submitRes.ok) throw new Error(submitData.error || 'Submission failed');
+
+      if (submitData.status === 'ready' && submitData.imageUrl) {
+        setImages([submitData.imageUrl]);
+        return;
+      }
 
       const { pollingUrl } = submitData;
 
