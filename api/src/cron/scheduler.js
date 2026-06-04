@@ -136,9 +136,7 @@ export async function runSchedulerJob(workflowId = null, options = {}) {
     return;
   }
   if (!geminiApiKey) {
-    console.error('[Scheduler Cron Error] GEMINI_API_KEY is not configured.');
-    if (workflowId) activeRuns.delete(workflowId);
-    return;
+    console.log('[Scheduler Cron Info] Global GEMINI_API_KEY is not configured. Individual user keys will be required.');
   }
 
   const dsnBase = unipileDsn.startsWith('http') ? unipileDsn : `https://${unipileDsn}`;
@@ -177,6 +175,12 @@ export async function runSchedulerJob(workflowId = null, options = {}) {
       try {
         console.log(`[Scheduler Cron] Running workflow "${workflow.name}" (${workflow.id})`);
         
+        const userGeminiApiKey = workflow.user?.geminiApiKey || geminiApiKey;
+        if (!userGeminiApiKey) {
+          console.error(`[Scheduler Cron Error] No Gemini API key available for workflow "${workflow.name}" (user: ${workflow.user?.id}). Skipping.`);
+          continue;
+        }
+
         let accountId = workflow.user?.unipileAccountId || workflow.userId; // userId stores the unipile account_id
 
         // Self-heal: If account ID looks like a database user UUID (e.g. 36 chars with hyphens), auto-resolve it
@@ -349,7 +353,7 @@ export async function runSchedulerJob(workflowId = null, options = {}) {
 
             const promptText = parts.join('\n\n');
 
-            const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`, {
+            const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${userGeminiApiKey}`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({

@@ -49,4 +49,14 @@ export const authApi = {
       },
       body: JSON.stringify({ unipileAccountId })
     }).then(r => r.json()),
+
+  updateGeminiApiKey: (token, geminiApiKey) =>
+    fetch(`${API_URL}/auth/gemini-settings`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}` 
+      },
+      body: JSON.stringify({ geminiApiKey })
+    }).then(r => r.json()),
 };

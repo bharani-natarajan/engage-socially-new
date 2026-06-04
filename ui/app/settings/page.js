@@ -28,6 +28,9 @@ export default function SettingsPage() {
   const [personalName, setPersonalName] = useState('');
   const [loadingPages, setLoadingPages] = useState(false);
   const [selectedPageId, setSelectedPageId] = useState(null);
+  const [geminiApiKey, setGeminiApiKey] = useState('');
+  const [apiKeySaved, setApiKeySaved] = useState(false);
+  const [savingApiKey, setSavingApiKey] = useState(false);
 
   useEffect(() => {
     setAutoReply(localStorage.getItem(SETTING_AI_AUTO_REPLY) === 'true');
@@ -90,6 +93,23 @@ export default function SettingsPage() {
     };
 
     fetchLinkedInPages();
+
+    // Fetch user's custom Gemini API key
+    if (token) {
+      fetch('/api/auth/gemini-settings', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (!data.error && data.geminiApiKey) {
+            setGeminiApiKey(data.geminiApiKey);
+          }
+        })
+        .catch(console.error);
+    }
+
     setMounted(true);
   }, []);
 
@@ -156,6 +176,39 @@ export default function SettingsPage() {
     localStorage.setItem(SETTING_AI_AVOID, avoid);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  }
+
+  async function saveApiKey() {
+    setSavingApiKey(true);
+    const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+    if (!token) {
+      alert('Authentication token not found. Please log in again.');
+      setSavingApiKey(false);
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/auth/gemini-settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ geminiApiKey })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setApiKeySaved(true);
+        setTimeout(() => setApiKeySaved(false), 2000);
+      } else {
+        alert('Failed to save API Key: ' + (data.error || 'Unknown error'));
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error saving API Key: ' + err.message);
+    } finally {
+      setSavingApiKey(false);
+    }
   }
 
   if (!mounted) return null;
@@ -360,6 +413,66 @@ export default function SettingsPage() {
           >
             <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ${autoReply ? 'translate-x-5' : 'translate-x-0'}`} />
           </button>
+        </div>
+      </div>
+
+      {/* Gemini API Key */}
+      <div className="bg-lord-card rounded-2xl border border-lord-border shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-lord-border">
+          <h3 className="text-sm font-bold text-lord-text-main">Gemini AI Configuration</h3>
+          <p className="text-xs text-lord-text-muted mt-0.5">
+            Configure your Gemini API Key to use your own quota for content generation
+          </p>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="block text-[13px] font-semibold text-lord-text-main mb-1.5">
+              Your Gemini API Key
+            </label>
+            <p className="text-[12px] text-lord-text-muted mb-3">
+              If left blank, the system's default API key will be used. You can obtain your API key from Google AI Studio.
+            </p>
+            <div className="flex gap-2">
+              <input
+                type="password"
+                value={geminiApiKey}
+                onChange={(e) => setGeminiApiKey(e.target.value)}
+                placeholder="AIzaSy..."
+                className="flex-1 rounded-xl border border-lord-border bg-white px-4 py-2.5 text-[13px] text-lord-text-main placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-lord-green/40"
+              />
+              {geminiApiKey && (
+                <button
+                  type="button"
+                  onClick={() => setGeminiApiKey('')}
+                  className="px-3 rounded-xl border border-lord-border text-[12px] hover:bg-gray-50 text-lord-text-muted transition-colors"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between border-t border-lord-border/50 pt-4">
+            <span className="text-[11px] text-lord-text-muted">
+              Keys are stored securely and used only for your comment/content generation.
+            </span>
+            <div className="flex items-center gap-3">
+              {apiKeySaved && (
+                <span className="text-[12px] text-lord-green font-semibold flex items-center gap-1.5">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  Saved
+                </span>
+              )}
+              <button
+                onClick={saveApiKey}
+                disabled={savingApiKey}
+                className="px-5 py-2.5 rounded-full bg-lord-green text-white text-[13px] font-bold hover:bg-lord-green-dark transition-colors shadow-sm disabled:opacity-50"
+              >
+                {savingApiKey ? 'Saving...' : 'Save API Key'}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 

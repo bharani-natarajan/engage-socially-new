@@ -19,6 +19,7 @@ model User {
   unipileAccountId String?  @map("unipile_account_id")
   linkedinPostTarget String   @default("personal") @map("linkedin_post_target")
   linkedinOrgId      String?  @map("linkedin_org_id")
+  geminiApiKey       String?  @map("gemini_api_key")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 

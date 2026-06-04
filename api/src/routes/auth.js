@@ -283,7 +283,7 @@ router.get('/me', requireAuth, async (req, res, next) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.userId },
-      select: { id: true, firstName: true, lastName: true, email: true, phone: true, role: true, verified: true, unipileAccountId: true, linkedinPostTarget: true, linkedinOrgId: true, createdAt: true },
+      select: { id: true, firstName: true, lastName: true, email: true, phone: true, role: true, verified: true, unipileAccountId: true, linkedinPostTarget: true, linkedinOrgId: true, geminiApiKey: true, createdAt: true },
     });
     if (!user) return res.status(404).json({ error: 'User not found' });
     res.json({ user });
@@ -320,6 +320,22 @@ router.post('/unipile-settings', requireAuth, async (req, res, next) => {
       select: { id: true, linkedinPostTarget: true, linkedinOrgId: true }
     });
     res.json({ message: 'Settings updated successfully', user });
+  } catch (err) { next(err); }
+});
+
+/* ------------------------------------------------------------------ */
+/*  POST /auth/gemini-settings — Update Gemini API Key                */
+/* ------------------------------------------------------------------ */
+router.post('/gemini-settings', requireAuth, async (req, res, next) => {
+  try {
+    const { geminiApiKey } = req.body;
+    const keyToSave = geminiApiKey?.trim() || null;
+    const user = await prisma.user.update({
+      where: { id: req.userId },
+      data: { geminiApiKey: keyToSave },
+      select: { id: true, geminiApiKey: true }
+    });
+    res.json({ message: 'Gemini API key updated successfully', user });
   } catch (err) { next(err); }
 });
 

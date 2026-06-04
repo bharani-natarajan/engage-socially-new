@@ -1,13 +1,9 @@
-import nodemailer from 'nodemailer';
+import AWS from 'aws-sdk';
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST ?? 'smtp.gmail.com',
-  port: parseInt(process.env.SMTP_PORT ?? '587'),
-  secure: process.env.SMTP_SECURE === 'true',
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
+const ses = new AWS.SES({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  region: process.env.AWS_REGION || 'ap-south-1',
 });
 
 /**
@@ -17,8 +13,43 @@ export function generateOtp() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
+// Utility function to parse email addresses from environment variables
+export function parseDevEmails(devEmailString) {
+  if (!devEmailString) return [];
+  
+  let emails = [];
+  
+  if (devEmailString.includes(',')) {
+    emails = devEmailString.split(',').map(email => email.trim());
+  } else if (devEmailString.startsWith('[') && devEmailString.endsWith(']')) {
+    try {
+      emails = JSON.parse(devEmailString);
+    } catch (err) {
+      emails = [devEmailString];
+    }
+  } else {
+    emails = [devEmailString];
+  }
+  
+  return emails.filter(email => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
+}
+
+// Get development email addresses as array
+export function getDevEmails() {
+  let devEmailString = process.env.DEV_TEST_EMAIL || '';
+  
+  if (devEmailString.startsWith('"') && devEmailString.endsWith('"')) {
+    devEmailString = devEmailString.slice(1, -1);
+  }
+  if (devEmailString.startsWith("'") && devEmailString.endsWith("'")) {
+    devEmailString = devEmailString.slice(1, -1);
+  }
+  
+  return parseDevEmails(devEmailString);
+}
+
 /**
- * Send an OTP email
+ * Send an OTP email via AWS SES
  * @param {string} to - recipient email
  * @param {string} code - 6-digit OTP
  * @param {'signup'|'login'|'reset'} type - OTP purpose
@@ -65,16 +96,41 @@ export async function sendOtpEmail(to, code, type) {
 
   console.log(`\n==========================================\n[DEVELOPMENT OTP] Code for ${to} (${type}): ${code}\n==========================================\n`);
 
+  // Redirect recipient in development mode
+  let recipients = [to];
+  if (process.env.NODE_ENV === 'DEV') {
+    const devEmails = getDevEmails();
+    if (devEmails.length > 0) {
+      recipients = devEmails;
+    }
+  }
+
+  const fromAddress = process.env.EMAIL_FROM || '"Engage Socially" <info@beesofbusiness.com>';
+
+  const emailParams = {
+    Destination: {
+      ToAddresses: recipients,
+    },
+    Message: {
+      Body: {
+        Html: {
+          Charset: 'UTF-8',
+          Data: html,
+        },
+      },
+      Subject: {
+        Charset: 'UTF-8',
+        Data: subjects[type],
+      },
+    },
+    Source: fromAddress,
+  };
+
   try {
-    await transporter.sendMail({
-      from: `"Engage Socially" <${process.env.SMTP_USER || 'noreply@engagesocially.com'}>`,
-      to,
-      subject: subjects[type],
-      html,
-    });
-    console.log(`[Mailer] OTP email sent successfully to ${to}`);
+    const data = await ses.sendEmail(emailParams).promise();
+    console.log(`[Mailer] OTP email sent successfully to ${recipients.join(', ')}. Message ID: ${data.MessageId}`);
   } catch (mailErr) {
-    console.warn(`[Mailer Warning] Failed to send OTP email to ${to}: ${mailErr.message}`);
+    console.warn(`[Mailer Warning] Failed to send OTP email via SES to ${recipients.join(', ')}: ${mailErr.message}`);
     console.log(`[Mailer Warning] Please use the OTP code printed in the console above to log in/verify.`);
   }
 }
