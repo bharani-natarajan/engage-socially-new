@@ -105,7 +105,7 @@ export async function sendOtpEmail(to, code, type) {
     }
   }
 
-  const fromAddress = process.env.EMAIL_FROM || '"Engage Socially" <info@beesofbusiness.com>';
+  const fromAddress = process.env.EMAIL_FROM || '"Engage Socially" <info@virpanix.com>';
 
   const emailParams = {
     Destination: {
