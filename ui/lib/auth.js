@@ -100,6 +100,21 @@ export function AuthProvider({ children }) {
     }
   }, [token, user, updateUser]);
 
+  // Automatically sync Unipile/LinkedIn and other social connection cookies on app load/login
+  useEffect(() => {
+    if (!token || !user) return;
+
+    const headers = { 'Authorization': `Bearer ${token}` };
+    fetch('/api/auth/unipile/sync', { headers })
+      .then(res => res.json())
+      .then(data => {
+        if (data.ok) {
+          console.log('[Auth] Connection cookies synced successfully.');
+        }
+      })
+      .catch(err => console.error('[Auth Sync Error]', err));
+  }, [token, user]);
+
   return (
     <AuthContext.Provider value={value}>
       {children}

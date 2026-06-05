@@ -31,6 +31,7 @@ export default function SettingsPage() {
   const [geminiApiKey, setGeminiApiKey] = useState('');
   const [apiKeySaved, setApiKeySaved] = useState(false);
   const [savingApiKey, setSavingApiKey] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(false);
 
   useEffect(() => {
     setAutoReply(localStorage.getItem(SETTING_AI_AUTO_REPLY) === 'true');
@@ -427,12 +428,27 @@ export default function SettingsPage() {
 
         <div className="p-6 space-y-4">
           <div>
-            <label className="block text-[13px] font-semibold text-lord-text-main mb-1.5">
-              Your Gemini API Key
-            </label>
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <label className="block text-[13px] font-semibold text-lord-text-main">
+                Your Gemini API Key
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowInstructions(true)}
+                className="text-lord-text-muted hover:text-lord-green transition-colors focus:outline-none"
+                title="How to get an API key"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="16" x2="12" y2="12"></line>
+                  <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                </svg>
+              </button>
+            </div>
             <p className="text-[12px] text-lord-text-muted mb-3">
               If left blank, the system's default API key will be used. You can obtain your API key from Google AI Studio.
             </p>
+
             <div className="flex gap-2">
               <input
                 type="password"
@@ -572,6 +588,95 @@ export default function SettingsPage() {
           <p className="text-sm text-lord-green-dark leading-relaxed">
             <span className="font-semibold">Auto Reply is ON.</span> Unanswered comments will automatically receive an AI-generated reply when you open any post's comments.
           </p>
+        </div>
+      )}
+
+      {/* Modal Popup for Gemini API Key Instructions */}
+      {showInstructions && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all">
+          <div className="relative bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-100 overflow-hidden transform transition-all duration-300 scale-100">
+            {/* Close button */}
+            <button
+              type="button"
+              onClick={() => setShowInstructions(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors p-1.5 rounded-lg hover:bg-gray-100 focus:outline-none"
+              aria-label="Close instructions"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+
+            {/* Header */}
+            <div className="flex items-center gap-3 mb-5 pb-3 border-b border-gray-100">
+              <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center text-lord-green flex-shrink-0">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-gray-900 leading-none">Gemini API Key</h3>
+                <p className="text-[12px] text-gray-500 mt-1">Get your free key from Google AI Studio</p>
+              </div>
+            </div>
+
+            {/* Steps */}
+            <ol className="space-y-4 text-[13px] text-gray-700 leading-relaxed">
+              <li className="flex gap-3">
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-green-50 text-lord-green font-bold text-xs flex items-center justify-center border border-green-100">1</span>
+                <div>
+                  Go to the{' '}
+                  <a
+                    href="https://aistudio.google.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-lord-green hover:underline font-semibold inline-flex items-center gap-0.5"
+                  >
+                    Google AI Studio
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                      <polyline points="15 3 21 3 21 9"></polyline>
+                      <line x1="10" y1="14" x2="21" y2="3"></line>
+                    </svg>
+                  </a>
+                </div>
+              </li>
+              <li className="flex gap-3">
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-green-50 text-lord-green font-bold text-xs flex items-center justify-center border border-green-100">2</span>
+                <div>Sign in with your Google account.</div>
+              </li>
+              <li className="flex gap-3">
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-green-50 text-lord-green font-bold text-xs flex items-center justify-center border border-green-100">3</span>
+                <div>
+                  Click the <span className="font-semibold text-gray-900">"Get API key"</span> button in the top left.
+                </div>
+              </li>
+              <li className="flex gap-3">
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-green-50 text-lord-green font-bold text-xs flex items-center justify-center border border-green-100">4</span>
+                <div>
+                  Click <span className="font-semibold text-gray-900">"Create API key"</span>, select/create a project, and generate the key.
+                </div>
+              </li>
+              <li className="flex gap-3">
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-green-50 text-lord-green font-bold text-xs flex items-center justify-center border border-green-100">5</span>
+                <div>
+                  Copy your key (starts with <code className="bg-gray-50 border border-gray-200/60 px-1.5 py-0.5 rounded font-mono text-[11.5px] text-gray-800">AIzaSy...</code>) and paste it below.
+                </div>
+              </li>
+            </ol>
+
+            {/* Footer button */}
+            <div className="mt-6 pt-4 border-t border-gray-100 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowInstructions(false)}
+                className="px-5 py-2 rounded-xl bg-lord-green hover:bg-lord-green-dark text-white font-bold text-[13px] transition-colors shadow-sm focus:outline-none"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
