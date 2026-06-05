@@ -148,7 +148,23 @@ export default function MessagesPage() {
             </div>
           )}
           {convosError && (
-            <p className="text-sm text-red-500 text-center px-5 py-8">{convosError}</p>
+            <div className="flex flex-col items-center gap-3 px-5 py-8 text-center">
+              <p className="text-sm text-red-500">
+                {convosError.includes('disconnected') || convosError.includes('Disconnected account') ? (
+                  <>Your LinkedIn account is disconnected. Please reconnect it to load your messages.</>
+                ) : (
+                  convosError
+                )}
+              </p>
+              {(convosError.includes('disconnected') || convosError.includes('Disconnected account')) && (
+                <a
+                  href="/settings"
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl transition-colors shadow-sm text-center"
+                >
+                  Reconnect LinkedIn
+                </a>
+              )}
+            </div>
           )}
           {!loadingConvos && !convosError && conversations.length === 0 && (
             <p className="text-sm text-gray-400 text-center px-5 py-8">No conversations yet.</p>

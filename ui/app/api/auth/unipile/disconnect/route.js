@@ -2,8 +2,11 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { deleteAccount } from '@/lib/unipile';
 
-export async function POST() {
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+export async function POST(request) {
   try {
+    const authHeader = request.headers.get('authorization');
     const store = await cookies();
     const accountId = store.get('unipile_account_id')?.value;
 
@@ -12,6 +15,22 @@ export async function POST() {
         await deleteAccount(accountId);
       } catch (err) {
         console.error('[Unipile deleteAccount error]', err.message);
+      }
+    }
+
+    // Update database user record to set unipileAccountId to null
+    if (authHeader) {
+      try {
+        await fetch(`${API_URL}/auth/unipile-account`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': authHeader,
+          },
+          body: JSON.stringify({ unipileAccountId: null }),
+        });
+      } catch (err) {
+        console.error('[Unipile database update error]', err.message);
       }
     }
 

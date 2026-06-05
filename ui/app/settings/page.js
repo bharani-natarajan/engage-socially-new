@@ -149,7 +149,15 @@ export default function SettingsPage() {
   const handleDisconnect = async () => {
     if (!confirm('Are you sure you want to disconnect your LinkedIn account? This will clear all connection settings.')) return;
     try {
-      const res = await fetch('/api/auth/unipile/disconnect', { method: 'POST' });
+      const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      const res = await fetch('/api/auth/unipile/disconnect', { 
+        method: 'POST',
+        headers
+      });
       if (res.ok) {
         setLiName(null);
         setLiPages([]);

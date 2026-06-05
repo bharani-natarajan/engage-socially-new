@@ -19,7 +19,10 @@ async function req(path, { method = 'GET', body, form } = {}) {
 
   if (res.status === 204) return {};
   const data = await res.json();
-  if (!res.ok) throw new Error(data.message || data.error || JSON.stringify(data) || `Unipile ${res.status}`);
+  if (!res.ok) {
+    const errorMsg = data.detail || data.message || data.error || data.title || (typeof data === 'object' ? JSON.stringify(data) : data) || `Unipile ${res.status}`;
+    throw new Error(errorMsg);
+  }
   return data;
 }
 

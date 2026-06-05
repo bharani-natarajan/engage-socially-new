@@ -53,7 +53,30 @@ export default function PostsPage() {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 rounded-2xl bg-red-50 border border-red-100 text-red-600 text-sm">{error}</div>
+        <div className="mb-6 p-4 rounded-2xl bg-red-50 border border-red-100 text-red-600 text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            <span className="font-semibold">
+              {error.includes('disconnected') || error.includes('Disconnected account') ? (
+                <>Your LinkedIn account is disconnected. Please reconnect it to fetch your posts.</>
+              ) : (
+                error
+              )}
+            </span>
+          </div>
+          {(error.includes('disconnected') || error.includes('Disconnected account')) && (
+            <Link
+              href="/settings"
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl transition-colors shadow-sm text-center shrink-0"
+            >
+              Reconnect LinkedIn
+            </Link>
+          )}
+        </div>
       )}
 
       {loading && (
