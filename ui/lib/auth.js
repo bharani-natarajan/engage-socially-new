@@ -17,18 +17,47 @@ export function AuthProvider({ children }) {
       if (savedToken && savedUser) {
         setToken(savedToken);
         setUser(JSON.parse(savedUser));
+        
+        // Sync connection cookies before letting pages load
+        const headers = { 'Authorization': `Bearer ${savedToken}` };
+        fetch('/api/auth/unipile/sync', { headers })
+          .then(res => res.json())
+          .then(data => {
+            if (data.ok) {
+              console.log('[Auth] Connection cookies synced successfully.');
+            }
+          })
+          .catch(err => console.error('[Auth Sync Error]', err))
+          .finally(() => {
+            setLoading(false);
+          });
+      } else {
+        setLoading(false);
       }
     } catch {
-      // Ignore parse errors
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   const login = useCallback((newToken, newUser) => {
+    setLoading(true);
     setToken(newToken);
     setUser(newUser);
     localStorage.setItem('auth_token', newToken);
     localStorage.setItem('auth_user', JSON.stringify(newUser));
+
+    const headers = { 'Authorization': `Bearer ${newToken}` };
+    fetch('/api/auth/unipile/sync', { headers })
+      .then(res => res.json())
+      .then(data => {
+        if (data.ok) {
+          console.log('[Auth] Connection cookies synced successfully on login.');
+        }
+      })
+      .catch(err => console.error('[Auth Sync Error]', err))
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
   const logout = useCallback(() => {
@@ -99,21 +128,6 @@ export function AuthProvider({ children }) {
       });
     }
   }, [token, user, updateUser]);
-
-  // Automatically sync Unipile/LinkedIn and other social connection cookies on app load/login
-  useEffect(() => {
-    if (!token || !user) return;
-
-    const headers = { 'Authorization': `Bearer ${token}` };
-    fetch('/api/auth/unipile/sync', { headers })
-      .then(res => res.json())
-      .then(data => {
-        if (data.ok) {
-          console.log('[Auth] Connection cookies synced successfully.');
-        }
-      })
-      .catch(err => console.error('[Auth Sync Error]', err));
-  }, [token, user]);
 
   return (
     <AuthContext.Provider value={value}>

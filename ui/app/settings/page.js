@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 export const SETTING_AI_AUTO_REPLY = 'setting_ai_auto_reply';
 export const SETTING_AI_CONTEXT = 'setting_ai_context';
@@ -32,6 +33,9 @@ export default function SettingsPage() {
   const [apiKeySaved, setApiKeySaved] = useState(false);
   const [savingApiKey, setSavingApiKey] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
+  const [showDisconnectModal, setShowDisconnectModal] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [disconnectError, setDisconnectError] = useState(null);
 
   useEffect(() => {
     setAutoReply(localStorage.getItem(SETTING_AI_AUTO_REPLY) === 'true');
@@ -146,8 +150,14 @@ export default function SettingsPage() {
     }
   };
 
-  const handleDisconnect = async () => {
-    if (!confirm('Are you sure you want to disconnect your LinkedIn account? This will clear all connection settings.')) return;
+  const handleDisconnect = () => {
+    setShowDisconnectModal(true);
+    setDisconnectError(null);
+  };
+
+  const confirmDisconnect = async () => {
+    setDisconnecting(true);
+    setDisconnectError(null);
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
       const headers = {};
@@ -164,12 +174,16 @@ export default function SettingsPage() {
         setPersonalName('');
         setLiPostTarget('personal');
         setSelectedPageId(null);
+        setShowDisconnectModal(false);
       } else {
-        alert('Failed to disconnect');
+        const data = await res.json();
+        setDisconnectError(data.error || 'Failed to disconnect account. Please try again.');
       }
     } catch (err) {
       console.error(err);
-      alert('Error disconnecting: ' + err.message);
+      setDisconnectError('Error disconnecting: ' + err.message);
+    } finally {
+      setDisconnecting(false);
     }
   };
 
@@ -600,8 +614,8 @@ export default function SettingsPage() {
       )}
 
       {/* Modal Popup for Gemini API Key Instructions */}
-      {showInstructions && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all">
+      {showInstructions && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all">
           <div className="relative bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-100 overflow-hidden transform transition-all duration-300 scale-100">
             {/* Close button */}
             <button
@@ -685,7 +699,76 @@ export default function SettingsPage() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Modal Popup for Disconnect Confirmation */}
+      {showDisconnectModal && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all animate-in fade-in duration-200">
+          <div className="relative bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-100 overflow-hidden transform transition-all duration-300 scale-100">
+            {/* Header */}
+            <div className="flex items-center gap-3 mb-4 pb-3 border-b border-gray-100">
+              <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center text-red-600 flex-shrink-0">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-gray-900 leading-none">Disconnect LinkedIn?</h3>
+                <p className="text-[12px] text-gray-500 mt-1">This will clear your connection settings</p>
+              </div>
+            </div>
+
+            {/* Content */}
+            <p className="text-[13px] text-gray-600 leading-relaxed mb-6">
+              Are you sure you want to disconnect your LinkedIn account? This will clear all your active connections, targeting settings, and active workflows.
+            </p>
+
+            {disconnectError && (
+              <p className="mb-4 text-xs text-red-600 bg-red-50 p-2.5 rounded-xl border border-red-100 font-semibold">
+                {disconnectError}
+              </p>
+            )}
+
+            {/* Actions */}
+            <div className="flex items-center gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  if (disconnecting) return;
+                  setShowDisconnectModal(false);
+                  setDisconnectError(null);
+                }}
+                disabled={disconnecting}
+                className="px-4 py-2 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700 font-bold text-[13px] transition-colors focus:outline-none disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDisconnect}
+                disabled={disconnecting}
+                className="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-[13px] transition-colors shadow-sm focus:outline-none flex items-center gap-1.5 disabled:opacity-75"
+              >
+                {disconnecting ? (
+                  <>
+                    <svg className="animate-spin h-3.5 w-3.5 text-white" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Disconnecting…
+                  </>
+                ) : (
+                  'Disconnect'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );
